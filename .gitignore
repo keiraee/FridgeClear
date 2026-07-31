@@ -43,3 +43,6 @@ build/
 *.log
 logs/
 logs.*
+
+### External source data ###
+data/source/HowToCook/
