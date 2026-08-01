@@ -46,3 +46,7 @@ logs.*
 
 ### External source data ###
 data/source/HowToCook/
+data/fridgeclear*
+.env
+.env.*
+!.env.example
