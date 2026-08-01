@@ -69,6 +69,7 @@ public class HowToCookImporter {
                     .orElseGet(RecipeSourceDocument::new);
             boolean unchanged = document.getId() != null
                     && parsed.fileHash().equals(document.getFileHash())
+                    && HowToCookParser.PARSER_VERSION.equals(document.getParserVersion())
                     && document.getImportStatus() != RecipeEnums.ImportStatus.FAILED
                     && recipeRepository.findBySourceDocumentId(document.getId()).isPresent();
             if (unchanged) { report.skipped++; return; }
@@ -133,7 +134,7 @@ public class HowToCookImporter {
             relation.setRecipeId(recipeId);
             relation.setIngredientId(ingredient.getId());
             relation.setRawName(name);
-            relation.setRole(RecipeEnums.IngredientRole.UNKNOWN);
+            relation.setRole(roleFor(name));
             relation.setOptional(name.contains("可选"));
             relation.setRawQuantity(item.rawQuantity());
             relation.setQuantityParseStatus(item.rawQuantity() == null ? RecipeEnums.QuantityParseStatus.UNPARSED : RecipeEnums.QuantityParseStatus.PARTIAL);
@@ -182,6 +183,19 @@ public class HowToCookImporter {
     }
 
     private String normalize(String value) { return value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "").trim(); }
+
+    private RecipeEnums.IngredientRole roleFor(String name) {
+        String normalized = normalize(name);
+        if (normalized.contains("冰箱") || normalized.contains("燃气灶") || normalized.contains("煤气灶")
+                || normalized.contains("电磁炉") || normalized.contains("炒锅") || normalized.contains("平底锅")
+                || normalized.contains("砂锅") || normalized.contains("铝锅") || normalized.contains("铁锅")
+                || normalized.contains("高压锅") || normalized.contains("汤锅") || normalized.contains("烤箱")
+                || normalized.contains("电饭煲") || normalized.contains("电炖锅") || normalized.contains("料理机")
+                || normalized.contains("搅拌机") || normalized.contains("砧板") || normalized.contains("菜刀")) {
+            return RecipeEnums.IngredientRole.TOOL;
+        }
+        return RecipeEnums.IngredientRole.UNKNOWN;
+    }
 
     private String identityHash(String path, String commit) {
         try {

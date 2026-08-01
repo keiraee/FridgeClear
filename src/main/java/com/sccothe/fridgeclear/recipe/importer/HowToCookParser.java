@@ -11,7 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class HowToCookParser {
-    public static final String PARSER_VERSION = "1.0.0";
+    public static final String PARSER_VERSION = "1.1.0";
     private static final Pattern H1 = Pattern.compile("^#\\s+(.+?)\\s*$", Pattern.MULTILINE);
     private static final Pattern DIFFICULTY = Pattern.compile("预估烹饪难度：\\s*(.+)");
     private static final Pattern CALORIES = Pattern.compile("预估卡路里：\\s*([0-9]+(?:\\.[0-9]+)?)");
