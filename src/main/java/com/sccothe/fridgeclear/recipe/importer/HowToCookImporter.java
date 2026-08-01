@@ -1,0 +1,220 @@
+package com.sccothe.fridgeclear.recipe.importer;
+
+import com.sccothe.fridgeclear.recipe.domain.*;
+import com.sccothe.fridgeclear.recipe.repository.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.nio.file.*;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Stream;
+
+@Service
+public class HowToCookImporter {
+    private final RecipeSourceDocumentRepository sourceRepository;
+    private final RecipeRepository recipeRepository;
+    private final IngredientRepository ingredientRepository;
+    private final RecipeIngredientRepository recipeIngredientRepository;
+    private final RecipeStepRepository recipeStepRepository;
+    private final RecipeMediaRepository recipeMediaRepository;
+    private final HowToCookParser parser = new HowToCookParser();
+
+    @Value("${fridgeclear.import.howtocook.root:data/source/HowToCook/dishes}")
+    private String rootDirectory;
+    @Value("${fridgeclear.import.howtocook.repository:https://github.com/Anduin2017/HowToCook.git}")
+    private String sourceRepositoryUrl;
+
+    public HowToCookImporter(RecipeSourceDocumentRepository sourceRepository,
+                             RecipeRepository recipeRepository,
+                             IngredientRepository ingredientRepository,
+                             RecipeIngredientRepository recipeIngredientRepository,
+                             RecipeStepRepository recipeStepRepository,
+                             RecipeMediaRepository recipeMediaRepository) {
+        this.sourceRepository = sourceRepository;
+        this.recipeRepository = recipeRepository;
+        this.ingredientRepository = ingredientRepository;
+        this.recipeIngredientRepository = recipeIngredientRepository;
+        this.recipeStepRepository = recipeStepRepository;
+        this.recipeMediaRepository = recipeMediaRepository;
+    }
+
+    @Transactional
+    public ImportReport importAll() {
+        Path root = Path.of(rootDirectory).toAbsolutePath().normalize();
+        if (!Files.isDirectory(root)) {
+            throw new IllegalStateException("HowToCook 目录不存在: " + root);
+        }
+        String commit = currentCommit(root.getParent());
+        ImportReport report = new ImportReport();
+        try (Stream<Path> files = Files.walk(root)) {
+            files.filter(this::isRecipeFile).sorted().forEach(file -> importOne(file, root, commit, report));
+        } catch (IOException exception) {
+            throw new IllegalStateException("扫描 HowToCook 目录失败: " + root, exception);
+        }
+        return report;
+    }
+
+    private void importOne(Path file, Path root, String commit, ImportReport report) {
+        report.scanned++;
+        String relative = root.relativize(file).toString().replace('\\', '/');
+        try {
+            String raw = Files.readString(file);
+            HowToCookParser.ParsedRecipe parsed = parser.parse(file, root, commit, raw);
+            RecipeSourceDocument document = sourceRepository.findBySourceRepositoryAndSourcePath(sourceRepositoryUrl, relative)
+                    .orElseGet(RecipeSourceDocument::new);
+            boolean unchanged = document.getId() != null
+                    && parsed.fileHash().equals(document.getFileHash())
+                    && document.getImportStatus() != RecipeEnums.ImportStatus.FAILED
+                    && recipeRepository.findBySourceDocumentId(document.getId()).isPresent();
+            if (unchanged) { report.skipped++; return; }
+            document.setSourceRepository(sourceRepositoryUrl);
+            document.setSourceCommit(commit);
+            document.setSourcePath(parsed.sourcePath());
+            document.setSourceIdentityHash(identityHash(parsed.sourcePath(), commit));
+            document.setFileHash(parsed.fileHash());
+            document.setRawMarkdown(parsed.rawMarkdown());
+            document.setParserVersion(HowToCookParser.PARSER_VERSION);
+            document.setImportStatus(parsed.status());
+            document.setImportError(parsed.error());
+            document.setImportedAt(LocalDateTime.now());
+            document = sourceRepository.save(document);
+            if (parsed.status() == RecipeEnums.ImportStatus.FAILED) {
+                report.failed++;
+                report.errors.add(relative + ": " + parsed.error());
+                return;
+            }
+
+            Recipe recipe = recipeRepository.findBySourceDocumentId(document.getId()).orElseGet(Recipe::new);
+            boolean created = recipe.getId() == null;
+            recipe.setSourceDocumentId(document.getId());
+            recipe.setName(parsed.name());
+            recipe.setSlug(slug(parsed.name(), parsed.sourcePath()));
+            recipe.setCategory(parsed.category());
+            recipe.setDescription(parsed.description());
+            recipe.setDifficultyText(parsed.difficultyText());
+            recipe.setDifficultyLevel(parsed.difficultyLevel());
+            recipe.setCalories(parsed.calories());
+            recipe.setSourceTitle(parsed.sourceTitle());
+            recipe.setStatus(RecipeEnums.Status.ACTIVE);
+            recipe = recipeRepository.save(recipe);
+            recipeIngredientRepository.deleteByRecipeId(recipe.getId());
+            recipeStepRepository.deleteByRecipeId(recipe.getId());
+            recipeMediaRepository.deleteByRecipeId(recipe.getId());
+            saveIngredients(recipe.getId(), parsed.ingredients(), report);
+            saveSteps(recipe.getId(), parsed.steps());
+            saveMedia(recipe.getId(), parsed.media());
+            if (created) report.created++; else report.updated++;
+            if (parsed.status() == RecipeEnums.ImportStatus.PARTIAL) report.partial++; else report.success++;
+        } catch (Exception exception) {
+            report.failed++;
+            report.errors.add(relative + ": " + exception.getMessage());
+        }
+    }
+
+    private void saveIngredients(Long recipeId, List<HowToCookParser.ParsedIngredient> parsed, ImportReport report) {
+        int order = 0;
+        for (HowToCookParser.ParsedIngredient item : parsed) {
+            String name = item.rawName().trim();
+            if (name.isBlank()) continue;
+            String normalized = normalize(name);
+            Ingredient ingredient = ingredientRepository.findByNormalizedName(normalized).orElseGet(() -> {
+                Ingredient created = new Ingredient();
+                created.setCanonicalName(name);
+                created.setNormalizedName(normalized);
+                created.setIngredientType(RecipeEnums.IngredientType.UNKNOWN);
+                return ingredientRepository.save(created);
+            });
+            RecipeIngredient relation = new RecipeIngredient();
+            relation.setRecipeId(recipeId);
+            relation.setIngredientId(ingredient.getId());
+            relation.setRawName(name);
+            relation.setRole(RecipeEnums.IngredientRole.UNKNOWN);
+            relation.setOptional(name.contains("可选"));
+            relation.setRawQuantity(item.rawQuantity());
+            relation.setQuantityParseStatus(item.rawQuantity() == null ? RecipeEnums.QuantityParseStatus.UNPARSED : RecipeEnums.QuantityParseStatus.PARTIAL);
+            relation.setSourceSection(item.sourceSection());
+            relation.setSortOrder(order++);
+            recipeIngredientRepository.save(relation);
+            if (item.rawQuantity() != null) report.unparsedQuantities++;
+        }
+    }
+
+    private void saveSteps(Long recipeId, List<String> steps) {
+        for (int index = 0; index < steps.size(); index++) {
+            RecipeStep step = new RecipeStep();
+            step.setRecipeId(recipeId);
+            step.setStepNo(index + 1);
+            step.setContent(steps.get(index));
+            recipeStepRepository.save(step);
+        }
+    }
+
+    private void saveMedia(Long recipeId, List<HowToCookParser.ParsedMedia> media) {
+        for (HowToCookParser.ParsedMedia item : media) {
+            RecipeMedia entity = new RecipeMedia();
+            entity.setRecipeId(recipeId);
+            entity.setMediaType(RecipeEnums.MediaType.IMAGE);
+            entity.setSourcePath(item.sourcePath());
+            entity.setAltText(item.altText());
+            entity.setSortOrder(item.sortOrder());
+            recipeMediaRepository.save(entity);
+        }
+    }
+
+    private boolean isRecipeFile(Path path) {
+        String value = path.toString().replace('\\', '/');
+        return Files.isRegularFile(path) && value.endsWith(".md") && !value.contains("/template/")
+                && !path.getFileName().toString().equalsIgnoreCase("README.md");
+    }
+
+    private String currentCommit(Path repositoryRoot) {
+        try {
+            Process process = new ProcessBuilder("git", "-C", repositoryRoot.toString(), "rev-parse", "HEAD").start();
+            String commit = new String(process.getInputStream().readAllBytes()).trim();
+            if (process.waitFor() == 0 && !commit.isBlank()) return commit;
+        } catch (Exception ignored) { }
+        return "unknown";
+    }
+
+    private String normalize(String value) { return value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "").trim(); }
+
+    private String identityHash(String path, String commit) {
+        try {
+            byte[] input = (sourceRepositoryUrl + "\n" + commit + "\n" + path).getBytes(StandardCharsets.UTF_8);
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(input));
+        } catch (Exception exception) {
+            throw new IllegalStateException("无法计算源文档身份 hash", exception);
+        }
+    }
+
+    private String slug(String name, String path) {
+        String safe = name.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", "-").replaceAll("^-|-$", "");
+        return (safe.isBlank() ? "recipe" : safe) + "-" + Integer.toHexString(path.hashCode());
+    }
+
+    public static class ImportReport {
+        public int scanned;
+        public int success;
+        public int partial;
+        public int failed;
+        public int created;
+        public int updated;
+        public int skipped;
+        public int unparsedQuantities;
+        public final List<String> errors = new ArrayList<>();
+        public int getScanned() { return scanned; }
+        public int getSuccess() { return success; }
+        public int getPartial() { return partial; }
+        public int getFailed() { return failed; }
+        public int getCreated() { return created; }
+        public int getUpdated() { return updated; }
+        public int getSkipped() { return skipped; }
+        public int getUnparsedQuantities() { return unparsedQuantities; }
+        public List<String> getErrors() { return errors; }
+    }
+}
