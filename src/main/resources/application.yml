@@ -16,10 +16,15 @@ spring:
       connection-timeout: 30000
 
   jpa:
+    show-sql: false
     hibernate:
       ddl-auto: validate
     database-platform: org.hibernate.dialect.MySQLDialect
     open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
 
   flyway:
     enabled: true
@@ -32,3 +37,9 @@ knife4j:
     title: FridgeClear API
     version: 1.0.0
     description: FridgeClear 智能冰箱管理后端接口
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.flywaydb: INFO
