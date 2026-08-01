@@ -10,6 +10,9 @@ public class RecipeStep {
     @Column(nullable = false) private Integer stepNo;
     @Lob @Column(nullable = false, columnDefinition = "longtext") private String content;
     public Long getId() { return id; }
+    public Long getRecipeId() { return recipeId; }
+    public Integer getStepNo() { return stepNo; }
+    public String getContent() { return content; }
     public void setRecipeId(Long v) { recipeId = v; }
     public void setStepNo(Integer v) { stepNo = v; }
     public void setContent(String v) { content = v; }

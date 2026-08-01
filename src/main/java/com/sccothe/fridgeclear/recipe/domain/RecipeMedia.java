@@ -12,6 +12,11 @@ public class RecipeMedia {
     @Column(length = 255) private String altText;
     @Column(nullable = false) private Integer sortOrder;
     public Long getId() { return id; }
+    public Long getRecipeId() { return recipeId; }
+    public RecipeEnums.MediaType getMediaType() { return mediaType; }
+    public String getSourcePath() { return sourcePath; }
+    public String getAltText() { return altText; }
+    public Integer getSortOrder() { return sortOrder; }
     public void setRecipeId(Long v) { recipeId = v; }
     public void setMediaType(RecipeEnums.MediaType v) { mediaType = v; }
     public void setSourcePath(String v) { sourcePath = v; }
