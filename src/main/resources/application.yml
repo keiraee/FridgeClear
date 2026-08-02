@@ -33,9 +33,9 @@ spring:
 knife4j:
   enable: true
   openapi:
-    title: FridgeClear API
+    title: FridgeClear 冰箱清理助手 API
     version: 1.0.0
-    description: FridgeClear 智能冰箱管理后端接口
+    description: FridgeClear AI Native 食材消耗与备餐规划助手后端接口
 
 logging:
   level:

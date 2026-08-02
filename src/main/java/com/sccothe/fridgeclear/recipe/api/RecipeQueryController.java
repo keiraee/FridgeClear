@@ -14,7 +14,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/recipes")
-@Tag(name = "Recipe", description = "菜谱查询")
+@Tag(name = "菜谱查询", description = "菜谱列表、详情和分类查询")
 public class RecipeQueryController {
     private final RecipeQueryService service;
 

@@ -19,6 +19,7 @@ public class HowToCookImporter {
     private final RecipeSourceDocumentRepository sourceRepository;
     private final RecipeRepository recipeRepository;
     private final IngredientRepository ingredientRepository;
+    private final IngredientAliasRepository ingredientAliasRepository;
     private final RecipeIngredientRepository recipeIngredientRepository;
     private final RecipeStepRepository recipeStepRepository;
     private final RecipeMediaRepository recipeMediaRepository;
@@ -32,12 +33,14 @@ public class HowToCookImporter {
     public HowToCookImporter(RecipeSourceDocumentRepository sourceRepository,
                              RecipeRepository recipeRepository,
                              IngredientRepository ingredientRepository,
+                             IngredientAliasRepository ingredientAliasRepository,
                              RecipeIngredientRepository recipeIngredientRepository,
                              RecipeStepRepository recipeStepRepository,
                              RecipeMediaRepository recipeMediaRepository) {
         this.sourceRepository = sourceRepository;
         this.recipeRepository = recipeRepository;
         this.ingredientRepository = ingredientRepository;
+        this.ingredientAliasRepository = ingredientAliasRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
         this.recipeStepRepository = recipeStepRepository;
         this.recipeMediaRepository = recipeMediaRepository;
@@ -123,7 +126,7 @@ public class HowToCookImporter {
             String name = item.rawName().trim();
             if (name.isBlank()) continue;
             String normalized = normalize(name);
-            Ingredient ingredient = ingredientRepository.findByNormalizedName(normalized).orElseGet(() -> {
+            Ingredient ingredient = resolveIngredient(name).orElseGet(() -> {
                 Ingredient created = new Ingredient();
                 created.setCanonicalName(name);
                 created.setNormalizedName(normalized);
@@ -183,6 +186,13 @@ public class HowToCookImporter {
     }
 
     private String normalize(String value) { return value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "").trim(); }
+
+    private Optional<Ingredient> resolveIngredient(String rawName) {
+        String normalized = normalize(rawName);
+        return ingredientAliasRepository.findByNormalizedAlias(normalized)
+                .flatMap(alias -> ingredientRepository.findById(alias.getIngredientId()))
+                .or(() -> ingredientRepository.findByNormalizedName(normalized));
+    }
 
     private RecipeEnums.IngredientRole roleFor(String name) {
         String normalized = normalize(name);

@@ -26,7 +26,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/pantry-items")
-@Tag(name = "Pantry", description = "用户食材库存")
+@Tag(name = "库存管理", description = "用户冰箱食材库存")
 public class PantryItemController {
     private final PantryItemService service;
 

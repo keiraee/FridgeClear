@@ -41,6 +41,7 @@ public final class PantryItemDtos {
             Long id,
             String rawName,
             Long ingredientId,
+            String ingredientName,
             BigDecimal quantity,
             String unit,
             LocalDate purchaseDate,
@@ -49,7 +50,7 @@ public final class PantryItemDtos {
             boolean expiringSoon,
             String note
     ) {
-        public static Response from(PantryItem item, LocalDate today) {
+        public static Response from(PantryItem item, LocalDate today, String ingredientName) {
             boolean expiringSoon = item.getExpireDate() != null
                     && !item.getExpireDate().isBefore(today)
                     && !item.getExpireDate().isAfter(today.plusDays(3));
@@ -57,6 +58,7 @@ public final class PantryItemDtos {
                     item.getId(),
                     item.getRawName(),
                     item.getIngredientId(),
+                    ingredientName,
                     item.getQuantity(),
                     item.getUnit(),
                     item.getPurchaseDate(),

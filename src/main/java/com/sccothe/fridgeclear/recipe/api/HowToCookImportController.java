@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/imports")
-@Tag(name = "Recipe Import", description = "HowToCook 菜谱导入")
+@Tag(name = "菜谱导入", description = "HowToCook 菜谱数据导入")
 public class HowToCookImportController {
     private final HowToCookImporter importer;
 

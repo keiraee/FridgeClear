@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/admin/ingredients")
-@Tag(name = "Ingredient Admin", description = "食材标准化管理")
+@Tag(name = "食材标准化", description = "食材名称和别名标准化管理")
 public class IngredientNormalizationController {
     private final IngredientNormalizationService service;
 

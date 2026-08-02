@@ -1,5 +1,6 @@
 package com.sccothe.fridgeclear.recipe.service;
 
+import com.sccothe.fridgeclear.pantry.repository.PantryItemRepository;
 import com.sccothe.fridgeclear.recipe.domain.Ingredient;
 import com.sccothe.fridgeclear.recipe.domain.IngredientAlias;
 import com.sccothe.fridgeclear.recipe.repository.*;
@@ -23,13 +24,16 @@ public class IngredientNormalizationService {
     private final IngredientRepository ingredientRepository;
     private final IngredientAliasRepository aliasRepository;
     private final RecipeIngredientRepository recipeIngredientRepository;
+    private final PantryItemRepository pantryItemRepository;
 
     public IngredientNormalizationService(IngredientRepository ingredientRepository,
                                            IngredientAliasRepository aliasRepository,
-                                           RecipeIngredientRepository recipeIngredientRepository) {
+                                           RecipeIngredientRepository recipeIngredientRepository,
+                                           PantryItemRepository pantryItemRepository) {
         this.ingredientRepository = ingredientRepository;
         this.aliasRepository = aliasRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
+        this.pantryItemRepository = pantryItemRepository;
     }
 
     @Transactional
@@ -59,6 +63,12 @@ public class IngredientNormalizationService {
                             item.setIngredientId(targetId);
                             recipeIngredientRepository.save(item);
                         });
+                pantryItemRepository.findAll().stream()
+                        .filter(item -> Objects.equals(item.getIngredientId(), sourceId))
+                        .forEach(item -> {
+                            item.setIngredientId(targetId);
+                            pantryItemRepository.save(item);
+                        });
                 ingredientRepository.delete(ingredient);
                 merged++;
             }
@@ -72,8 +82,26 @@ public class IngredientNormalizationService {
             }
             messages.add(original + " -> " + targetName);
         }
-        return new NormalizeReport(scanned, changed, merged, aliases, messages);
+        int pantryBound = bindUnlinkedPantryItems();
+        return new NormalizeReport(scanned, changed, merged, aliases, pantryBound, messages);
     }
 
-    public record NormalizeReport(int scanned, int changed, int merged, int aliases, List<String> messages) {}
+    private int bindUnlinkedPantryItems() {
+        int bound = 0;
+        for (var item : pantryItemRepository.findAll()) {
+            if (item.getIngredientId() != null) continue;
+            String normalized = IngredientNameNormalizer.normalize(item.getRawName());
+            Optional<Long> ingredientId = aliasRepository.findByNormalizedAlias(normalized)
+                    .map(IngredientAlias::getIngredientId)
+                    .or(() -> ingredientRepository.findByNormalizedName(normalized).map(Ingredient::getId));
+            if (ingredientId.isPresent()) {
+                item.setIngredientId(ingredientId.get());
+                pantryItemRepository.save(item);
+                bound++;
+            }
+        }
+        return bound;
+    }
+
+    public record NormalizeReport(int scanned, int changed, int merged, int aliases, int pantryBound, List<String> messages) {}
 }

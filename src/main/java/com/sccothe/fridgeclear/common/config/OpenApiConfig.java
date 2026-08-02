@@ -12,8 +12,8 @@ public class OpenApiConfig {
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("FridgeClear API")
+                        .title("FridgeClear 冰箱清理助手 API")
                         .version("1.0.0")
-                        .description("FridgeClear 智能冰箱管理后端接口"));
+                        .description("FridgeClear 是一个 AI Native 食材消耗与备餐规划助手。系统基于用户库存、食材保质期和菜谱数据，提供库存管理、菜谱匹配以及后续 AI 备餐计划能力。"));
     }
 }

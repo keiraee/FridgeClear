@@ -15,7 +15,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/recommendations")
-@Tag(name = "Recommendation", description = "基于库存的菜谱推荐")
+@Tag(name = "智能菜谱推荐", description = "根据库存食材匹配可制作菜谱")
 public class RecipeRecommendationController {
     private final com.sccothe.fridgeclear.recipe.service.RecipeRecommendationService service;
 
