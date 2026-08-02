@@ -11,7 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class HowToCookParser {
-    public static final String PARSER_VERSION = "1.1.0";
+    public static final String PARSER_VERSION = "1.2.0";
     private static final Pattern H1 = Pattern.compile("^#\\s+(.+?)\\s*$", Pattern.MULTILINE);
     private static final Pattern DIFFICULTY = Pattern.compile("预估烹饪难度：\\s*(.+)");
     private static final Pattern CALORIES = Pattern.compile("预估卡路里：\\s*([0-9]+(?:\\.[0-9]+)?)");
@@ -83,7 +83,12 @@ public final class HowToCookParser {
         List<ParsedIngredient> result = new ArrayList<>();
         for (String line : section.lines().toList()) {
             String value = listValue(line);
-            if (value != null) result.add(new ParsedIngredient(cleanName(value), null, RecipeEnums.SourceSection.REQUIRED));
+            if (value != null) {
+                for (String part : value.split("[、，,]")) {
+                    String name = cleanName(part);
+                    if (!name.isBlank()) result.add(new ParsedIngredient(name, null, RecipeEnums.SourceSection.REQUIRED));
+                }
+            }
         }
         return result;
     }
@@ -136,7 +141,13 @@ public final class HowToCookParser {
     }
 
     private String cleanName(String value) {
-        return value.replaceAll("（可选）|\\(可选\\)", "").replaceFirst("\\s*[（(]别称：.*?[）)]", "").trim();
+        return value
+                .replaceAll("（[^）]*）|\\([^)]*\\)", "")
+                .replaceAll("^\\s*\\d+(?:\\.\\d+)?\\s*(?:cm|毫米|厘米)?\\s*", "")
+                .replaceAll("^\\s*[一二两三四五六七八九十百]+\\s*(?:段|片|颗|个|只|块|根|瓣|把)\\s*", "")
+                .replaceAll("\\s*(?:各|共)?\\s*\\d+(?:\\.\\d+)?\\s*(?:克|g|千克|kg|毫升|ml|升|l|个|只|斤|片|瓣|根|块|勺|汤匙|茶匙)\\s*$", "")
+                .replaceAll("^(?:适量|少许|适当)\\s*", "")
+                .trim();
     }
 
     private String findValue(String text, Pattern pattern) {
