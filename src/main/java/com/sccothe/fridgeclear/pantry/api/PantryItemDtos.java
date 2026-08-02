@@ -2,6 +2,7 @@ package com.sccothe.fridgeclear.pantry.api;
 
 import com.sccothe.fridgeclear.pantry.domain.PantryItem;
 import com.sccothe.fridgeclear.pantry.domain.PantryItemStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -14,6 +15,7 @@ public final class PantryItemDtos {
     private PantryItemDtos() {
     }
 
+    @Schema(name = "PantryItemCreateRequest", description = "新增库存食材请求")
     public record CreateRequest(
             @NotBlank @Size(max = 128) String rawName,
             @DecimalMin(value = "0.001", inclusive = true) BigDecimal quantity,
@@ -24,6 +26,7 @@ public final class PantryItemDtos {
     ) {
     }
 
+    @Schema(name = "PantryItemUpdateRequest", description = "修改库存食材请求")
     public record UpdateRequest(
             @NotBlank @Size(max = 128) String rawName,
             @DecimalMin(value = "0.001", inclusive = true) BigDecimal quantity,
@@ -37,6 +40,7 @@ public final class PantryItemDtos {
     public record StatusRequest(@NotNull PantryItemStatus status) {
     }
 
+    @Schema(name = "PantryItemResponse", description = "库存食材响应")
     public record Response(
             Long id,
             String rawName,

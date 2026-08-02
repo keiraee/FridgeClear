@@ -42,3 +42,7 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.orm.jdbc.bind: TRACE
     org.flywaydb: INFO
+
+fridgeclear:
+  ai:
+    encryption-key: ${AI_PROVIDER_ENCRYPTION_KEY:}
