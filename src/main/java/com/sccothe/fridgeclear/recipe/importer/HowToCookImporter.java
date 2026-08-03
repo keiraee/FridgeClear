@@ -13,6 +13,8 @@ import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Stream;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class HowToCookImporter {
@@ -24,6 +26,7 @@ public class HowToCookImporter {
     private final RecipeStepRepository recipeStepRepository;
     private final RecipeMediaRepository recipeMediaRepository;
     private final HowToCookParser parser = new HowToCookParser();
+    private static final Pattern QUANTITY = Pattern.compile("(\\d+(?:\\.\\d+)?)(?:\\s*-\\s*(\\d+(?:\\.\\d+)?))?\\s*(克|g|千克|kg|毫升|ml|升|l|个|只|斤|片|瓣|根|块|勺|汤匙|茶匙)", Pattern.CASE_INSENSITIVE);
 
     @Value("${fridgeclear.import.howtocook.root:data/source/HowToCook/dishes}")
     private String rootDirectory;
@@ -121,10 +124,18 @@ public class HowToCookImporter {
     }
 
     private void saveIngredients(Long recipeId, List<HowToCookParser.ParsedIngredient> parsed, ImportReport report) {
+        Map<String, String> quantitiesByName = new HashMap<>();
+        parsed.stream().filter(item -> item.sourceSection() == RecipeEnums.SourceSection.CALCULATION)
+                .filter(item -> item.rawQuantity() != null && !item.rawQuantity().isBlank())
+                .forEach(item -> quantitiesByName.put(normalize(item.rawName()), item.rawQuantity()));
         int order = 0;
         for (HowToCookParser.ParsedIngredient item : parsed) {
             String name = item.rawName().trim();
             if (name.isBlank()) continue;
+            String rawQuantity = item.rawQuantity();
+            if (rawQuantity == null && item.sourceSection() == RecipeEnums.SourceSection.REQUIRED) {
+                rawQuantity = quantitiesByName.get(normalize(name));
+            }
             String normalized = normalize(name);
             Ingredient ingredient = resolveIngredient(name).orElseGet(() -> {
                 Ingredient created = new Ingredient();
@@ -139,13 +150,30 @@ public class HowToCookImporter {
             relation.setRawName(name);
             relation.setRole(roleFor(name));
             relation.setOptional(name.contains("可选"));
-            relation.setRawQuantity(item.rawQuantity());
-            relation.setQuantityParseStatus(item.rawQuantity() == null ? RecipeEnums.QuantityParseStatus.UNPARSED : RecipeEnums.QuantityParseStatus.PARTIAL);
+            relation.setRawQuantity(rawQuantity);
+            parseQuantity(relation, rawQuantity);
             relation.setSourceSection(item.sourceSection());
             relation.setSortOrder(order++);
             recipeIngredientRepository.save(relation);
-            if (item.rawQuantity() != null) report.unparsedQuantities++;
+            if (rawQuantity != null && relation.getQuantityParseStatus() != RecipeEnums.QuantityParseStatus.PARSED) report.unparsedQuantities++;
         }
+    }
+
+    private void parseQuantity(RecipeIngredient relation, String rawQuantity) {
+        if (rawQuantity == null || rawQuantity.isBlank()) {
+            relation.setQuantityParseStatus(RecipeEnums.QuantityParseStatus.UNPARSED);
+            return;
+        }
+        Matcher matcher = QUANTITY.matcher(rawQuantity);
+        if (!matcher.find()) {
+            relation.setQuantityParseStatus(RecipeEnums.QuantityParseStatus.UNPARSED);
+            return;
+        }
+        relation.setQuantityMin(new java.math.BigDecimal(matcher.group(1)));
+        relation.setQuantityMax(new java.math.BigDecimal(matcher.group(2) == null ? matcher.group(1) : matcher.group(2)));
+        relation.setUnit(matcher.group(3));
+        relation.setQuantityParseStatus(matcher.group(2) == null
+                ? RecipeEnums.QuantityParseStatus.PARSED : RecipeEnums.QuantityParseStatus.PARTIAL);
     }
 
     private void saveSteps(Long recipeId, List<String> steps) {
@@ -198,6 +226,7 @@ public class HowToCookImporter {
         String normalized = normalize(name);
         if (normalized.contains("冰箱") || normalized.contains("燃气灶") || normalized.contains("煤气灶")
                 || normalized.contains("电磁炉") || normalized.contains("炒锅") || normalized.contains("平底锅")
+                || normalized.contains("平底煎锅") || normalized.contains("厨房用夹") || normalized.contains("夹子")
                 || normalized.contains("砂锅") || normalized.contains("铝锅") || normalized.contains("铁锅")
                 || normalized.contains("高压锅") || normalized.contains("汤锅") || normalized.contains("烤箱")
                 || normalized.contains("电饭煲") || normalized.contains("电炖锅") || normalized.contains("料理机")

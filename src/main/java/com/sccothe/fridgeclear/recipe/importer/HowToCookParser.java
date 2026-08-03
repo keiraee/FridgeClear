@@ -11,7 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class HowToCookParser {
-    public static final String PARSER_VERSION = "1.2.0";
+    public static final String PARSER_VERSION = "1.5.0";
     private static final Pattern H1 = Pattern.compile("^#\\s+(.+?)\\s*$", Pattern.MULTILINE);
     private static final Pattern DIFFICULTY = Pattern.compile("预估烹饪难度：\\s*(.+)");
     private static final Pattern CALORIES = Pattern.compile("预估卡路里：\\s*([0-9]+(?:\\.[0-9]+)?)");
@@ -84,12 +84,32 @@ public final class HowToCookParser {
         for (String line : section.lines().toList()) {
             String value = listValue(line);
             if (value != null) {
-                for (String part : value.split("[、，,]")) {
+                for (String part : splitIngredientParts(value)) {
                     String name = cleanName(part);
                     if (!name.isBlank()) result.add(new ParsedIngredient(name, null, RecipeEnums.SourceSection.REQUIRED));
                 }
             }
         }
+        return result;
+    }
+
+    private List<String> splitIngredientParts(String value) {
+        List<String> result = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int parenthesisDepth = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '（' || c == '(') parenthesisDepth++;
+            if (c == '）' || c == ')') parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+            boolean separator = parenthesisDepth == 0 && (c == '、' || c == '，' || c == ',');
+            if (separator) {
+                if (!current.toString().isBlank()) result.add(current.toString());
+                current.setLength(0);
+            } else {
+                current.append(c);
+            }
+        }
+        if (!current.toString().isBlank()) result.add(current.toString());
         return result;
     }
 
