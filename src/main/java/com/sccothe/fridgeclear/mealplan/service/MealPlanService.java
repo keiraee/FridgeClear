@@ -2,10 +2,12 @@ package com.sccothe.fridgeclear.mealplan.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.sccothe.fridgeclear.ai.service.AiChatGateway;
 import com.sccothe.fridgeclear.mealplan.api.MealPlanDtos;
 import com.sccothe.fridgeclear.mealplan.domain.*;
 import com.sccothe.fridgeclear.mealplan.repository.*;
+import com.sccothe.fridgeclear.common.api.ResourceNotFoundException;
 import com.sccothe.fridgeclear.pantry.domain.PantryItem;
 import com.sccothe.fridgeclear.pantry.domain.PantryItemStatus;
 import com.sccothe.fridgeclear.pantry.repository.PantryItemRepository;
@@ -99,6 +101,82 @@ public class MealPlanService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public MealPlanDtos.PageResponse list(int page, int size, MealPlanEnums.PlanStatus status) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        var pageable = PageRequest.of(safePage, safeSize, org.springframework.data.domain.Sort.by("startDate").descending());
+        var result = status == null ? mealPlanRepository.findByUserId(DEMO_USER_ID, pageable)
+                : mealPlanRepository.findByUserIdAndStatus(DEMO_USER_ID, status, pageable);
+        return new MealPlanDtos.PageResponse(result.getContent().stream()
+                .map(item -> new MealPlanDtos.ListItem(item.getId(), item.getTitle(), item.getStartDate(), item.getEndDate(), item.getStatus())).toList(),
+                result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+
+    @Transactional(readOnly = true)
+    public MealPlanDtos.DetailResponse detail(Long id) {
+        MealPlan plan = ownedPlan(id);
+        List<MealPlanItem> items = itemRepository.findByMealPlanIdOrderByPlanDateAscSortOrderAsc(id);
+        Map<Long, String> recipeNames = recipeRepository.findAllById(items.stream().map(MealPlanItem::getRecipeId).toList()).stream()
+                .collect(Collectors.toMap(Recipe::getId, Recipe::getName, (first, ignored) -> first));
+        List<MealPlanDtos.ItemResponse> itemResponses = items.stream().map(item -> toItemResponse(item, recipeNames.getOrDefault(item.getRecipeId(), "未知菜谱"))).toList();
+        return new MealPlanDtos.DetailResponse(plan.getId(), plan.getTitle(), plan.getStartDate(), plan.getEndDate(), plan.getStatus(),
+                itemResponses, shoppingResponses(id));
+    }
+
+    @Transactional
+    public MealPlanDtos.ItemResponse updateItemStatus(Long planId, Long itemId, MealPlanDtos.ItemStatusRequest request) {
+        ownedPlan(planId);
+        MealPlanItem item = itemRepository.findByIdAndMealPlanId(itemId, planId)
+                .orElseThrow(() -> new ResourceNotFoundException("备餐计划项不存在: " + itemId));
+        item.setStatus(request.status());
+        itemRepository.save(item);
+        String recipeName = recipeRepository.findById(item.getRecipeId()).map(Recipe::getName).orElse("未知菜谱");
+        return toItemResponse(item, recipeName);
+    }
+
+    @Transactional(readOnly = true)
+    public List<MealPlanDtos.ShoppingResponse> shoppingList(Long planId) {
+        ownedPlan(planId);
+        return shoppingResponses(planId);
+    }
+
+    @Transactional
+    public MealPlanDtos.ShoppingResponse updateShoppingStatus(Long itemId, MealPlanDtos.ShoppingStatusRequest request) {
+        ShoppingListItem item = shoppingRepository.findById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("采购清单项不存在: " + itemId));
+        ownedPlan(item.getMealPlanId());
+        item.setStatus(request.status());
+        item = shoppingRepository.save(item);
+        return toShoppingResponse(item);
+    }
+
+    private MealPlan ownedPlan(Long id) {
+        return mealPlanRepository.findByIdAndUserId(id, DEMO_USER_ID)
+                .orElseThrow(() -> new ResourceNotFoundException("备餐计划不存在: " + id));
+    }
+
+    private List<MealPlanDtos.ShoppingResponse> shoppingResponses(Long planId) {
+        return shoppingRepository.findByMealPlanIdOrderByIdAsc(planId).stream().map(this::toShoppingResponse).toList();
+    }
+
+    private MealPlanDtos.ItemResponse toItemResponse(MealPlanItem item, String recipeName) {
+        return new MealPlanDtos.ItemResponse(item.getId(), item.getPlanDate(), item.getMealType(),
+                new MealPlanDtos.RecipeResponse(item.getRecipeId(), recipeName), item.getServings(),
+                readStringList(item.getUsedIngredientsJson()), readStringList(item.getMissingIngredientsJson()),
+                item.getReason(), item.getStatus());
+    }
+
+    private MealPlanDtos.ShoppingResponse toShoppingResponse(ShoppingListItem item) {
+        return new MealPlanDtos.ShoppingResponse(item.getId(), item.getName(), item.getQuantity(), item.getUnit(), item.getReason(), item.getStatus());
+    }
+
+    private List<String> readStringList(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try { return objectMapper.readValue(json, new TypeReference<>() {}); }
+        catch (Exception ignored) { return List.of(); }
+    }
+
     private MealPlanDtos.Response persistPlan(MealPlanDtos.GenerateRequest request, List<PantryItem> pantry,
                                               List<Recipe> recipes, Map<Long, List<RecipeIngredient>> ingredientsByRecipe,
                                               AiPlanRun run, String content) {
@@ -178,7 +256,7 @@ public class MealPlanService {
             entity.setReason(entry.reason());
             entity.setStatus(MealPlanEnums.ShoppingStatus.TODO);
             entity = shoppingRepository.save(entity);
-            shoppingResponses.add(new MealPlanDtos.ShoppingResponse(entity.getName(), entity.getQuantity(), entity.getUnit(), entity.getReason(), entity.getStatus()));
+            shoppingResponses.add(new MealPlanDtos.ShoppingResponse(entity.getId(), entity.getName(), entity.getQuantity(), entity.getUnit(), entity.getReason(), entity.getStatus()));
         }
         String summary = textValue(root, "summary", "已根据库存生成备餐计划");
         Map<String, PantryItem> earliestByIngredient = new LinkedHashMap<>();

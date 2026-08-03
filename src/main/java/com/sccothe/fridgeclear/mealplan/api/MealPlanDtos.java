@@ -27,11 +27,20 @@ public final class MealPlanDtos {
 
     public record Response(Long mealPlanId, String summary, List<ExpiringIngredient> expiringIngredients,
                            List<ItemResponse> items, List<ShoppingResponse> shoppingList) {}
+    public record ListItem(Long id, String title, LocalDate startDate, LocalDate endDate, MealPlanEnums.PlanStatus status) {}
+    public record PageResponse(List<ListItem> content, int page, int size, long totalElements, int totalPages) {}
+    public record DetailResponse(Long id, String title, LocalDate startDate, LocalDate endDate,
+                                 MealPlanEnums.PlanStatus status, List<ItemResponse> items,
+                                 List<ShoppingResponse> shoppingList) {}
+    @Schema(name = "MealPlanItemStatusRequest", description = "修改计划项状态请求")
+    public record ItemStatusRequest(@jakarta.validation.constraints.NotNull MealPlanEnums.ItemStatus status) {}
+    @Schema(name = "ShoppingStatusRequest", description = "修改采购项状态请求")
+    public record ShoppingStatusRequest(@jakarta.validation.constraints.NotNull MealPlanEnums.ShoppingStatus status) {}
     public record ExpiringIngredient(Long pantryItemId, String name, LocalDate expireDate, String reason) {}
     public record ItemResponse(Long id, LocalDate planDate, MealPlanEnums.MealType mealType,
                                RecipeResponse recipe, BigDecimal servings, List<String> usedIngredients,
                                List<String> missingIngredients, String reason, MealPlanEnums.ItemStatus status) {}
     public record RecipeResponse(Long id, String name) {}
-    public record ShoppingResponse(String name, BigDecimal quantity, String unit, String reason,
+    public record ShoppingResponse(Long id, String name, BigDecimal quantity, String unit, String reason,
                                    MealPlanEnums.ShoppingStatus status) {}
 }

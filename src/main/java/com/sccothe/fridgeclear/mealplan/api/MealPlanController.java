@@ -3,6 +3,7 @@ package com.sccothe.fridgeclear.mealplan.api;
 import com.sccothe.fridgeclear.common.api.ApiResponse;
 import com.sccothe.fridgeclear.common.api.RequestIdFilter;
 import com.sccothe.fridgeclear.mealplan.service.MealPlanService;
+import com.sccothe.fridgeclear.mealplan.domain.MealPlanEnums;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,5 +26,41 @@ public class MealPlanController {
         Object value = httpRequest.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         String requestId = value == null ? "req_" + UUID.randomUUID() : value.toString();
         return ApiResponse.success(service.generate(request), requestId);
+    }
+
+    @GetMapping
+    @Operation(summary = "查询备餐计划列表")
+    public ApiResponse<MealPlanDtos.PageResponse> list(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) MealPlanEnums.PlanStatus status,
+            HttpServletRequest request) {
+        return success(service.list(page, size, status), request);
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "查询备餐计划详情")
+    public ApiResponse<MealPlanDtos.DetailResponse> detail(@PathVariable Long id, HttpServletRequest request) {
+        return success(service.detail(id), request);
+    }
+
+    @PatchMapping("/{planId}/items/{itemId}/status")
+    @Operation(summary = "修改备餐计划项状态")
+    public ApiResponse<MealPlanDtos.ItemResponse> updateItemStatus(
+            @PathVariable Long planId, @PathVariable Long itemId,
+            @Valid @RequestBody MealPlanDtos.ItemStatusRequest body, HttpServletRequest request) {
+        return success(service.updateItemStatus(planId, itemId, body), request);
+    }
+
+    @GetMapping("/{planId}/shopping-list")
+    @Operation(summary = "获取备餐计划采购清单")
+    public ApiResponse<java.util.List<MealPlanDtos.ShoppingResponse>> shoppingList(@PathVariable Long planId, HttpServletRequest request) {
+        return success(service.shoppingList(planId), request);
+    }
+
+    private <T> ApiResponse<T> success(T data, HttpServletRequest request) {
+        Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+        String requestId = value == null ? "req_" + UUID.randomUUID() : value.toString();
+        return ApiResponse.success(data, requestId);
     }
 }
