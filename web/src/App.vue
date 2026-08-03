@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+import PageHeader from './components/PageHeader.vue'
+import PageFooter from './components/PageFooter.vue'
 </script>
 
 <template>
-  <HelloWorld />
+  <div class="site-shell">
+    <PageHeader />
+    <router-view />
+    <PageFooter />
+  </div>
 </template>

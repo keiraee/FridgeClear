@@ -50,3 +50,7 @@ data/fridgeclear*
 .env
 .env.*
 !.env.example
+
+### Claude Code ###
+.agents/
+skills-lock.json
