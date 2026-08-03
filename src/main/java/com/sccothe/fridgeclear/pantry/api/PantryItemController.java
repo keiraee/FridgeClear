@@ -5,6 +5,7 @@ import com.sccothe.fridgeclear.common.api.RequestIdFilter;
 import com.sccothe.fridgeclear.pantry.domain.PantryItemStatus;
 import com.sccothe.fridgeclear.pantry.service.PantryItemService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +28,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/pantry-items")
 @Tag(name = "库存管理", description = "用户冰箱食材库存")
+@SecurityRequirement(name = "Authorization")
 public class PantryItemController {
     private final PantryItemService service;
 

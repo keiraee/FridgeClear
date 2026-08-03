@@ -1,5 +1,6 @@
 package com.sccothe.fridgeclear.recipe.service;
 
+import com.sccothe.fridgeclear.auth.service.CurrentUser;
 import com.sccothe.fridgeclear.pantry.domain.PantryItem;
 import com.sccothe.fridgeclear.pantry.domain.PantryItemStatus;
 import com.sccothe.fridgeclear.pantry.repository.PantryItemRepository;
@@ -22,8 +23,6 @@ import java.util.stream.Collectors;
 @Service
 @Transactional(readOnly = true)
 public class RecipeRecommendationService {
-    private static final long DEMO_USER_ID = 1L;
-
     private final PantryItemRepository pantryItemRepository;
     private final RecipeRepository recipeRepository;
     private final RecipeIngredientQueryRepository recipeIngredientRepository;
@@ -44,12 +43,13 @@ public class RecipeRecommendationService {
 
     public RecommendationDtos.RecipeMatchResponse recommend(int limit) {
         int safeLimit = Math.min(Math.max(limit, 1), 50);
+        Long userId = CurrentUser.id();
         Map<String, Long> ingredientIdsByName = ingredientRepository.findAll().stream()
                 .collect(Collectors.toMap(item -> item.getNormalizedName(), item -> item.getId(), (first, ignored) -> first));
         Map<String, Long> ingredientIdsByAlias = aliasRepository.findAll().stream()
                 .collect(Collectors.toMap(IngredientAlias::getNormalizedAlias, IngredientAlias::getIngredientId, (first, ignored) -> first));
         List<PantryItem> pantryItems = pantryItemRepository.findByUserIdAndStatus(
-                DEMO_USER_ID, PantryItemStatus.AVAILABLE,
+                userId, PantryItemStatus.AVAILABLE,
                 org.springframework.data.domain.PageRequest.of(0, 200,
                         Sort.by("expireDate").ascending().and(Sort.by("id").ascending()))).getContent();
 

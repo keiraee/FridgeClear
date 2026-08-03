@@ -1,5 +1,6 @@
 package com.sccothe.fridgeclear.pantry.service;
 
+import com.sccothe.fridgeclear.auth.service.CurrentUser;
 import com.sccothe.fridgeclear.common.api.ResourceNotFoundException;
 import com.sccothe.fridgeclear.pantry.api.PantryItemDtos;
 import com.sccothe.fridgeclear.pantry.domain.PantryItem;
@@ -19,8 +20,6 @@ import java.time.LocalDate;
 @Service
 @Transactional
 public class PantryItemService {
-    private static final long DEMO_USER_ID = 1L;
-
     private final PantryItemRepository repository;
     private final IngredientRepository ingredientRepository;
     private final IngredientAliasRepository aliasRepository;
@@ -35,15 +34,16 @@ public class PantryItemService {
 
     @Transactional(readOnly = true)
     public Page<PantryItemDtos.Response> list(PantryItemStatus status, Pageable pageable) {
+        Long userId = CurrentUser.id();
         Page<PantryItem> items = status == null
-                ? repository.findByUserId(DEMO_USER_ID, pageable)
-                : repository.findByUserIdAndStatus(DEMO_USER_ID, status, pageable);
+                ? repository.findByUserId(userId, pageable)
+                : repository.findByUserIdAndStatus(userId, status, pageable);
         return items.map(item -> toResponse(item));
     }
 
     public PantryItemDtos.Response create(PantryItemDtos.CreateRequest request) {
         PantryItem item = new PantryItem();
-        item.setUserId(DEMO_USER_ID);
+        item.setUserId(CurrentUser.id());
         apply(item, request.rawName(), request.quantity(), request.unit(), request.purchaseDate(), request.expireDate(), request.note());
         return toResponse(repository.save(item));
     }
@@ -67,7 +67,7 @@ public class PantryItemService {
 
     private PantryItem findOwned(Long id) {
         return repository.findById(id)
-                .filter(item -> DEMO_USER_ID == item.getUserId())
+                .filter(item -> java.util.Objects.equals(CurrentUser.id(), item.getUserId()))
                 .orElseThrow(() -> new ResourceNotFoundException("库存食材不存在: " + id));
     }
 

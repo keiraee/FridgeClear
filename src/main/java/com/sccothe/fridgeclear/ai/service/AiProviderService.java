@@ -6,6 +6,7 @@ import com.sccothe.fridgeclear.ai.api.AiProviderDtos;
 import com.sccothe.fridgeclear.ai.domain.AiProviderProfile;
 import com.sccothe.fridgeclear.ai.domain.AiProtocol;
 import com.sccothe.fridgeclear.ai.repository.AiProviderProfileRepository;
+import com.sccothe.fridgeclear.auth.service.CurrentUser;
 import com.sccothe.fridgeclear.common.api.ResourceNotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,6 @@ import java.util.List;
 @Service
 @Transactional
 public class AiProviderService {
-    private static final long DEMO_USER_ID = 1L;
     private final AiProviderProfileRepository repository;
     private final AesGcmCrypto crypto;
     private final ObjectMapper objectMapper;
@@ -32,13 +32,14 @@ public class AiProviderService {
 
     @Transactional(readOnly = true)
     public List<AiProviderDtos.Response> list() {
-        return repository.findByUserIdOrderByActiveDescNameAsc(DEMO_USER_ID).stream().map(this::toResponse).toList();
+        return repository.findByUserIdOrderByActiveDescNameAsc(CurrentUser.id()).stream().map(this::toResponse).toList();
     }
 
     public AiProviderDtos.Response create(AiProviderDtos.CreateRequest request) {
         AiProviderProfile profile = new AiProviderProfile();
-        profile.setUserId(DEMO_USER_ID);
-        profile.setActive(repository.findByUserIdAndActiveTrue(DEMO_USER_ID).isEmpty());
+        Long userId = CurrentUser.id();
+        profile.setUserId(userId);
+        profile.setActive(repository.findByUserIdAndActiveTrue(userId).isEmpty());
         profile.setEnabled(true);
         apply(profile, request.name(), request.protocol(), request.baseUrl(), request.modelName());
         profile.setApiKeyCiphertext(crypto.encrypt(request.apiKey()));
@@ -58,7 +59,7 @@ public class AiProviderService {
 
     public AiProviderDtos.Response activate(Long id) {
         AiProviderProfile target = findOwned(id);
-        repository.findByUserIdOrderByActiveDescNameAsc(DEMO_USER_ID).forEach(item -> item.setActive(false));
+        repository.findByUserIdOrderByActiveDescNameAsc(CurrentUser.id()).forEach(item -> item.setActive(false));
         target.setActive(true);
         target.setEnabled(true);
         return toResponse(target);
@@ -138,7 +139,7 @@ public class AiProviderService {
     }
 
     private AiProviderProfile findOwned(Long id) {
-        return repository.findByIdAndUserId(id, DEMO_USER_ID)
+        return repository.findByIdAndUserId(id, CurrentUser.id())
                 .orElseThrow(() -> new ResourceNotFoundException("AI Provider 不存在: " + id));
     }
 

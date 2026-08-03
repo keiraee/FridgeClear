@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.sccothe.fridgeclear.ai.service.AiChatGateway;
+import com.sccothe.fridgeclear.auth.service.CurrentUser;
 import com.sccothe.fridgeclear.mealplan.api.MealPlanDtos;
 import com.sccothe.fridgeclear.mealplan.domain.*;
 import com.sccothe.fridgeclear.mealplan.repository.*;
@@ -30,7 +31,6 @@ import java.util.stream.Collectors;
 
 @Service
 public class MealPlanService {
-    private static final long DEMO_USER_ID = 1L;
     private static final String PROMPT_VERSION = "meal-plan-v1";
     private final PantryItemRepository pantryRepository;
     private final RecipeRepository recipeRepository;
@@ -63,8 +63,9 @@ public class MealPlanService {
 
     @Transactional
     public MealPlanDtos.Response generate(MealPlanDtos.GenerateRequest request) {
+        Long userId = CurrentUser.id();
         List<PantryItem> pantry = pantryRepository.findByUserIdAndStatusOrderByExpireDateAscIdAsc(
-                DEMO_USER_ID, PantryItemStatus.AVAILABLE);
+                userId, PantryItemStatus.AVAILABLE);
         if (request.usePantryItemIds() != null && !request.usePantryItemIds().isEmpty()) {
             Set<Long> selected = new HashSet<>(request.usePantryItemIds());
             pantry = pantry.stream().filter(item -> selected.contains(item.getId())).toList();
@@ -77,7 +78,7 @@ public class MealPlanService {
 
         String requestJson = writeJson(request);
         AiPlanRun run = new AiPlanRun();
-        run.setUserId(DEMO_USER_ID);
+        run.setUserId(userId);
         run.setPromptVersion(PROMPT_VERSION);
         run.setRequestJson(requestJson);
         run.setStatus(MealPlanEnums.AiRunStatus.RUNNING);
@@ -91,8 +92,8 @@ public class MealPlanService {
             run.setStatus(MealPlanEnums.AiRunStatus.SUCCESS);
             run.setFinishedAt(java.time.LocalDateTime.now());
             aiRunRepository.save(run);
-            archiveActivePlans();
-            return persistPlan(request, pantry, recipes, ingredientsByRecipe, run, result.content());
+            archiveActivePlans(userId);
+            return persistPlan(request, pantry, recipes, ingredientsByRecipe, run, result.content(), userId);
         } catch (RuntimeException exception) {
             run.setStatus(MealPlanEnums.AiRunStatus.FAILED);
             run.setErrorMessage(exception.getMessage());
@@ -107,8 +108,9 @@ public class MealPlanService {
         int safePage = Math.max(page, 0);
         int safeSize = Math.min(Math.max(size, 1), 100);
         var pageable = PageRequest.of(safePage, safeSize, org.springframework.data.domain.Sort.by("startDate").descending());
-        var result = status == null ? mealPlanRepository.findByUserId(DEMO_USER_ID, pageable)
-                : mealPlanRepository.findByUserIdAndStatus(DEMO_USER_ID, status, pageable);
+        Long userId = CurrentUser.id();
+        var result = status == null ? mealPlanRepository.findByUserId(userId, pageable)
+                : mealPlanRepository.findByUserIdAndStatus(userId, status, pageable);
         return new MealPlanDtos.PageResponse(result.getContent().stream()
                 .map(item -> new MealPlanDtos.ListItem(item.getId(), item.getTitle(), item.getStartDate(), item.getEndDate(), item.getStatus())).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
@@ -121,8 +123,8 @@ public class MealPlanService {
         mealPlanRepository.save(plan);
     }
 
-    private void archiveActivePlans() {
-        List<MealPlan> activePlans = mealPlanRepository.findByUserIdAndStatus(DEMO_USER_ID, MealPlanEnums.PlanStatus.ACTIVE);
+    private void archiveActivePlans(Long userId) {
+        List<MealPlan> activePlans = mealPlanRepository.findByUserIdAndStatus(userId, MealPlanEnums.PlanStatus.ACTIVE);
         activePlans.forEach(plan -> plan.setStatus(MealPlanEnums.PlanStatus.ARCHIVED));
         mealPlanRepository.saveAll(activePlans);
     }
@@ -166,7 +168,7 @@ public class MealPlanService {
     }
 
     private MealPlan ownedPlan(Long id) {
-        return mealPlanRepository.findByIdAndUserId(id, DEMO_USER_ID)
+        return mealPlanRepository.findByIdAndUserId(id, CurrentUser.id())
                 .orElseThrow(() -> new ResourceNotFoundException("备餐计划不存在: " + id));
     }
 
@@ -193,12 +195,12 @@ public class MealPlanService {
 
     private MealPlanDtos.Response persistPlan(MealPlanDtos.GenerateRequest request, List<PantryItem> pantry,
                                               List<Recipe> recipes, Map<Long, List<RecipeIngredient>> ingredientsByRecipe,
-                                              AiPlanRun run, String content) {
+                                              AiPlanRun run, String content, Long userId) {
         JsonNode root = parseJson(content);
         Map<Long, Recipe> recipeMap = recipes.stream().collect(Collectors.toMap(Recipe::getId, Function.identity()));
         LocalDate start = LocalDate.now();
         MealPlan plan = new MealPlan();
-        plan.setUserId(DEMO_USER_ID);
+        plan.setUserId(userId);
         plan.setAiPlanRunId(run.getId());
         plan.setTitle("AI 冰箱消耗计划");
         plan.setStartDate(start);

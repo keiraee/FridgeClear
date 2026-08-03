@@ -3,6 +3,7 @@ package com.sccothe.fridgeclear.ai.api;
 import com.sccothe.fridgeclear.common.api.ApiResponse;
 import com.sccothe.fridgeclear.common.api.RequestIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +14,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/ai/providers")
 @Tag(name = "AI 模型配置", description = "多 AI Provider 配置、切换和连接测试")
+@SecurityRequirement(name = "Authorization")
 public class AiProviderController {
     private final com.sccothe.fridgeclear.ai.service.AiProviderService service;
 

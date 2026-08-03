@@ -46,3 +46,6 @@ logging:
 fridgeclear:
   ai:
     encryption-key: ${AI_PROVIDER_ENCRYPTION_KEY:}
+  auth:
+    jwt-secret: ${AUTH_JWT_SECRET:}
+    jwt-expiration-seconds: ${AUTH_JWT_EXPIRATION_SECONDS:7200}

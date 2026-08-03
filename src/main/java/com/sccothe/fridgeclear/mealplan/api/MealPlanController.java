@@ -5,6 +5,7 @@ import com.sccothe.fridgeclear.common.api.RequestIdFilter;
 import com.sccothe.fridgeclear.mealplan.service.MealPlanService;
 import com.sccothe.fridgeclear.mealplan.domain.MealPlanEnums;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/meal-plans")
 @Tag(name = "AI 备餐计划", description = "根据库存和菜谱生成 AI 备餐计划")
+@SecurityRequirement(name = "Authorization")
 public class MealPlanController {
     private final MealPlanService service;
 

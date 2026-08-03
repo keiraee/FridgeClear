@@ -42,6 +42,16 @@ public class ApiExceptionHandler {
         return response(HttpStatus.NOT_FOUND, "RESOURCE_NOT_FOUND", exception.getMessage(), null, request);
     }
 
+    @ExceptionHandler(ResourceConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConflict(ResourceConflictException exception, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "RESOURCE_CONFLICT", exception.getMessage(), null, request);
+    }
+
+    @ExceptionHandler(AuthenticationFailedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationFailedException exception, HttpServletRequest request) {
+        return response(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", exception.getMessage(), null, request);
+    }
+
     private <T> ResponseEntity<ApiResponse<T>> response(
             HttpStatus status,
             String code,

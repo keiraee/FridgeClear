@@ -4,6 +4,7 @@ import com.sccothe.fridgeclear.common.api.ApiResponse;
 import com.sccothe.fridgeclear.common.api.RequestIdFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/recommendations")
 @Tag(name = "智能菜谱推荐", description = "根据库存食材匹配可制作菜谱")
+@SecurityRequirement(name = "Authorization")
 public class RecipeRecommendationController {
     private final com.sccothe.fridgeclear.recipe.service.RecipeRecommendationService service;
 
