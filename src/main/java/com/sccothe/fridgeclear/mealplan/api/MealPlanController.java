@@ -44,6 +44,13 @@ public class MealPlanController {
         return success(service.detail(id), request);
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "归档备餐计划")
+    public ApiResponse<Void> archive(@PathVariable Long id, HttpServletRequest request) {
+        service.archive(id);
+        return success(null, request);
+    }
+
     @PatchMapping("/{planId}/items/{itemId}/status")
     @Operation(summary = "修改备餐计划项状态")
     public ApiResponse<MealPlanDtos.ItemResponse> updateItemStatus(

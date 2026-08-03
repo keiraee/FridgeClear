@@ -91,6 +91,7 @@ public class MealPlanService {
             run.setStatus(MealPlanEnums.AiRunStatus.SUCCESS);
             run.setFinishedAt(java.time.LocalDateTime.now());
             aiRunRepository.save(run);
+            archiveActivePlans();
             return persistPlan(request, pantry, recipes, ingredientsByRecipe, run, result.content());
         } catch (RuntimeException exception) {
             run.setStatus(MealPlanEnums.AiRunStatus.FAILED);
@@ -111,6 +112,19 @@ public class MealPlanService {
         return new MealPlanDtos.PageResponse(result.getContent().stream()
                 .map(item -> new MealPlanDtos.ListItem(item.getId(), item.getTitle(), item.getStartDate(), item.getEndDate(), item.getStatus())).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements(), result.getTotalPages());
+    }
+
+    @Transactional
+    public void archive(Long id) {
+        MealPlan plan = ownedPlan(id);
+        plan.setStatus(MealPlanEnums.PlanStatus.ARCHIVED);
+        mealPlanRepository.save(plan);
+    }
+
+    private void archiveActivePlans() {
+        List<MealPlan> activePlans = mealPlanRepository.findByUserIdAndStatus(DEMO_USER_ID, MealPlanEnums.PlanStatus.ACTIVE);
+        activePlans.forEach(plan -> plan.setStatus(MealPlanEnums.PlanStatus.ARCHIVED));
+        mealPlanRepository.saveAll(activePlans);
     }
 
     @Transactional(readOnly = true)
