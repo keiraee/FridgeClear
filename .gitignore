@@ -54,3 +54,6 @@ data/fridgeclear*
 ### Claude Code ###
 .agents/
 skills-lock.json
+
+# Code indexer generated output (local only)
+.md/
