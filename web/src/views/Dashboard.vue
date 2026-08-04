@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import PantryStatus from '../components/PantryStatus.vue'
 import RecipeCard from '../components/RecipeCard.vue'
-import { mockRecipes } from '../mock/recipes'
-import { pantrySummary } from '../mock/pantry'
+import { getRecipes } from '../api/recipes'
+import { getPantryItems } from '../api/pantry'
+import { useAuthStore } from '../stores/auth'
+import type { PantryItem, RecipeSummary } from '../types'
 
 const router = useRouter()
+const auth = useAuthStore()
 
 const activeFilter = ref('热门')
 const activeMealType = ref<string | null>(null)
+const recipes = ref<RecipeSummary[]>([])
+const pantryItems = ref<PantryItem[]>([])
+const loadingRecipes = ref(false)
+const loadingPantry = ref(false)
+const recipeError = ref('')
+const pantryError = ref('')
 
 const filters = ['热门', '快手菜', '一锅料理', '健康轻食', '早餐', '午餐', '晚餐', '汤羹']
 
@@ -21,9 +30,50 @@ const mealTypes = [
 ]
 
 const filteredRecipes = computed(() => {
-  // In a real app, filter by API. For now, show all mock recipes.
-  return mockRecipes
+  return recipes.value
 })
+
+const categoryLabels: Record<string, string> = {
+  AQUATIC: '水产', BREAKFAST: '早餐', CONDIMENT: '调味品', DESSERT: '甜点',
+  DRINK: '饮品', MEAT_DISH: '肉菜', SEMI_FINISHED: '半成品', SOUP: '汤羹',
+  STAPLE: '主食', VEGETABLE_DISH: '素菜', UNKNOWN: '其他',
+}
+
+async function loadRecipes() {
+  if (!auth.isAuthenticated) return
+  loadingRecipes.value = true
+  recipeError.value = ''
+  try {
+    const result = await getRecipes({ page: 0, size: 8 })
+    recipes.value = result.items.map((recipe) => ({
+      ...recipe,
+      category: categoryLabels[recipe.category] ?? recipe.category,
+    }))
+  } catch {
+    recipeError.value = '菜谱加载失败，请确认后端服务已启动'
+  } finally {
+    loadingRecipes.value = false
+  }
+}
+
+async function loadPantry() {
+  if (!auth.isAuthenticated) return
+  loadingPantry.value = true
+  pantryError.value = ''
+  try {
+    pantryItems.value = (await getPantryItems({ status: 'AVAILABLE', page: 0, size: 100 })).items
+  } catch {
+    pantryError.value = '库存加载失败'
+  } finally {
+    loadingPantry.value = false
+  }
+}
+
+const pantrySummary = computed(() => ({
+  totalItems: pantryItems.value.length,
+  expiringSoon: pantryItems.value.filter((item) => item.expiringSoon ?? item.isExpiringSoon).length,
+  recipesAvailable: recipes.value.length,
+}))
 
 function goToMealPlan() {
   router.push('/meal-plan')
@@ -36,6 +86,11 @@ function handleAddToPlan(_recipeId: number) {
 function handleToggleFavorite(_recipeId: number) {
   // placeholder
 }
+
+onMounted(() => {
+  void loadRecipes()
+  void loadPantry()
+})
 </script>
 
 <template>
@@ -54,10 +109,11 @@ function handleToggleFavorite(_recipeId: number) {
       </div>
 
       <PantryStatus
-        :total-items="pantrySummary.totalItems"
+        :total-items="loadingPantry ? 0 : pantrySummary.totalItems"
         :expiring-soon="pantrySummary.expiringSoon"
         :recipes-available="pantrySummary.recipesAvailable"
       />
+      <p v-if="pantryError" class="hero-data-error">{{ pantryError }}</p>
     </section>
 
     <!-- ============ TRENDING RECIPES ============ -->
@@ -84,7 +140,10 @@ function handleToggleFavorite(_recipeId: number) {
       </div>
 
       <!-- Recipe grid -->
-      <div class="recipe-grid">
+      <p v-if="loadingRecipes" class="loading-copy">正在加载真实菜谱…</p>
+      <p v-else-if="recipeError" class="error-copy">{{ recipeError }}</p>
+      <p v-else-if="!filteredRecipes.length" class="empty-copy">登录后即可查看菜谱内容</p>
+      <div v-else class="recipe-grid">
         <RecipeCard
           v-for="recipe in filteredRecipes"
           :key="recipe.id"

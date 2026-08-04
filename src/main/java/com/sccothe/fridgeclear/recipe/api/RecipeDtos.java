@@ -9,10 +9,10 @@ public final class RecipeDtos {
 
     public record ListItem(Long id, String name, RecipeEnums.Category category, String description,
                            String difficultyText, Byte difficultyLevel, BigDecimal calories,
-                           int ingredientCount) {
-        public static ListItem from(Recipe recipe, int ingredientCount) {
+                           int ingredientCount, String coverImageUrl) {
+        public static ListItem from(Recipe recipe, int ingredientCount, String coverImageUrl) {
             return new ListItem(recipe.getId(), recipe.getName(), recipe.getCategory(), recipe.getDescription(),
-                    recipe.getDifficultyText(), recipe.getDifficultyLevel(), recipe.getCalories(), ingredientCount);
+                    recipe.getDifficultyText(), recipe.getDifficultyLevel(), recipe.getCalories(), ingredientCount, coverImageUrl);
         }
     }
 

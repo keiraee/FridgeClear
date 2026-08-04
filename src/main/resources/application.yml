@@ -44,6 +44,8 @@ logging:
     org.flywaydb: INFO
 
 fridgeclear:
+  recipe:
+    media-root: ${HOWTOCOOK_MEDIA_ROOT:data/source/HowToCook/dishes}
   ai:
     encryption-key: ${AI_PROVIDER_ENCRYPTION_KEY:}
   auth:

@@ -22,13 +22,16 @@ export type PantryItemStatus = 'AVAILABLE' | 'USED_UP' | 'EXPIRED' | 'DISCARDED'
 export interface PantryItem {
   id: number
   rawName: string
-  canonicalName: string | null
+  canonicalName?: string | null
+  ingredientId?: number | null
+  ingredientName?: string | null
   quantity: number | null
   unit: string | null
   purchaseDate: string | null
   expireDate: string | null
   status: PantryItemStatus
-  isExpiringSoon: boolean
+  expiringSoon?: boolean
+  isExpiringSoon?: boolean
   note: string | null
 }
 

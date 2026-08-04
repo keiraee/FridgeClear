@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'updateItemStatus', itemId: number, status: string): void
-  (e: 'toggleShoppingItem', itemIndex: number): void
+  (e: 'toggleShoppingItem', itemId: number): void
 }>()
 
 function mealTypeLabel(type: string): string {
@@ -109,7 +109,7 @@ const groupedItems = computed(() => {
           <span>原因</span>
           <span>状态</span>
         </div>
-        <div v-for="(item, idx) in plan.shoppingList" :key="idx" class="shopping-row" :class="{ purchased: item.status === 'PURCHASED' }">
+        <div v-for="item in plan.shoppingList" :key="item.id" class="shopping-row" :class="{ purchased: item.status === 'PURCHASED' }">
           <span class="shopping-name">{{ item.name }}</span>
           <span class="shopping-qty">{{ item.quantity }} {{ item.unit }}</span>
           <span class="shopping-reason">{{ item.reason }}</span>
@@ -117,7 +117,7 @@ const groupedItems = computed(() => {
             class="buy-btn"
             :class="{ done: item.status === 'PURCHASED' }"
             type="button"
-            @click="emit('toggleShoppingItem', idx)"
+            @click="emit('toggleShoppingItem', item.id ?? 0)"
           >
             {{ item.status === 'PURCHASED' ? '已购买 ✓' : '标记已买' }}
           </button>

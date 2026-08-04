@@ -48,7 +48,14 @@ public class RecipeQueryService {
             result = recipeRepository.findByStatus(RecipeEnums.Status.ACTIVE, pageable);
         }
         return new RecipeDtos.ListResponse(
-                result.getContent().stream().map(recipe -> RecipeDtos.ListItem.from(recipe, (int) ingredientRepository.countByRecipeId(recipe.getId()))).toList(),
+                result.getContent().stream().map(recipe -> RecipeDtos.ListItem.from(
+                        recipe,
+                        (int) ingredientRepository.countByRecipeId(recipe.getId()),
+                        mediaRepository.findByRecipeIdOrderBySortOrderAsc(recipe.getId()).stream()
+                                .findFirst()
+                                .map(media -> "/api/v1/recipes/" + recipe.getId() + "/media/" + media.getSortOrder())
+                                .orElse(null)
+                )).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements());
     }
 

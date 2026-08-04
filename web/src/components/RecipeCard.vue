@@ -20,6 +20,7 @@ const matchClass = computed(() => {
 
 const matchLabel = computed(() => {
   const p = props.recipe.matchPercent ?? 0
+  if (!props.recipe.matchPercent) return '精选菜谱'
   if (p >= 95) return '库存可做'
   return `${p}% 库存匹配`
 })
@@ -42,7 +43,14 @@ const foodIcon = computed(() => {
 
     <div class="recipe-image" :class="toneClass">
       <div class="food-bg" />
-      <div class="food-icon" aria-hidden="true">{{ foodIcon }}</div>
+      <img
+        v-if="recipe.coverImageUrl"
+        class="recipe-real-image"
+        :src="recipe.coverImageUrl"
+        :alt="recipe.name"
+        loading="lazy"
+      />
+      <div v-else class="food-icon" aria-hidden="true">{{ foodIcon }}</div>
 
       <button
         class="card-save"
