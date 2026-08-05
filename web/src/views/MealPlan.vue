@@ -275,7 +275,10 @@ onMounted(() => { void loadHistory() })
           <div><p class="overline">SAVED PLANS</p><h2>历史备餐计划</h2></div>
           <span class="list-count">{{ historyLoading ? '加载中…' : `${historyPlans.length} 份` }}</span>
         </div>
-        <p v-if="!historyLoading && !historyPlans.length" class="empty-copy">还没有保存的计划，生成后会自动出现在这里。</p>
+        <div v-if="!historyLoading && !historyPlans.length" class="plan-history-empty">
+          <p>还没有保存的计划。</p>
+          <p class="plan-history-empty-hint">生成后会自动出现在这里，可随时回看。</p>
+        </div>
         <div v-else class="plan-history-list">
           <button v-for="item in historyPlans" :key="item.id" class="plan-history-item" type="button" :class="{ selected: plan?.id === item.id }" @click="openHistory(item)">
             <span><strong>{{ item.title }}</strong><small>{{ item.startDate }} 至 {{ item.endDate }}</small></span>
@@ -289,11 +292,14 @@ onMounted(() => { void loadHistory() })
     <!-- ============ RESULTS ============ -->
     <section class="plan-results-section">
       <!-- Loading -->
-      <div v-if="isGenerating" class="loading-state">
+      <div v-if="isGenerating" class="loading-state plan-loading-state">
         <div class="loading-spinner" />
         <h3>{{ generationStage }}</h3>
-        <p>已等待 {{ elapsedLabel }}，模型响应时间可能需要 1–3 分钟。</p>
-        <p class="loading-tip">请保持当前页面打开，生成完成后会自动显示结果。</p>
+        <p class="plan-loading-elapsed">已等待 <strong>{{ elapsedLabel }}</strong></p>
+        <p>模型响应通常需要 1–3 分钟，请保持页面打开。</p>
+        <div class="plan-loading-bar" aria-hidden="true">
+          <span class="plan-loading-bar-fill" />
+        </div>
       </div>
 
       <!-- Error -->

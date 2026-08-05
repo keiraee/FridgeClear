@@ -128,17 +128,18 @@ function openRecipe(recipeId: number) {
     <!-- Shopping list -->
     <div v-if="plan.shoppingList?.length" class="shopping-section">
       <h3>🛒 采购清单</h3>
-      <div class="shopping-table">
-        <div class="shopping-header">
-          <span>食材</span>
-          <span>数量</span>
-          <span>原因</span>
-          <span>状态</span>
-        </div>
-        <div v-for="item in plan.shoppingList" :key="item.id" class="shopping-row" :class="{ purchased: item.status === 'PURCHASED' }">
-          <span class="shopping-name">{{ item.name }}</span>
-          <span class="shopping-qty">{{ item.quantity }} {{ item.unit }}</span>
-          <span class="shopping-reason">{{ item.reason }}</span>
+      <div class="shopping-cards">
+        <article
+          v-for="item in plan.shoppingList"
+          :key="item.id"
+          class="shopping-card"
+          :class="{ purchased: item.status === 'PURCHASED' }"
+        >
+          <div class="shopping-card-main">
+            <strong class="shopping-name">{{ item.name }}</strong>
+            <span class="shopping-qty">{{ item.quantity ?? '' }} {{ item.unit ?? '' }}</span>
+          </div>
+          <p v-if="item.reason" class="shopping-reason">{{ item.reason }}</p>
           <button
             class="buy-btn"
             :class="{ done: item.status === 'PURCHASED' }"
@@ -147,7 +148,7 @@ function openRecipe(recipeId: number) {
           >
             {{ item.status === 'PURCHASED' ? '已购买 ✓' : '标记已买' }}
           </button>
-        </div>
+        </article>
       </div>
     </div>
   </div>
@@ -220,5 +221,23 @@ function openRecipe(recipeId: number) {
 
 .plan-recipe-name:hover {
   color: var(--light-orange);
+}
+
+@media (max-width: 640px) {
+  .plan-recipe-thumb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .plan-recipe-name {
+    font-size: 15px;
+    width: 100%;
+  }
+
+  .plan-item-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
 }
 </style>
