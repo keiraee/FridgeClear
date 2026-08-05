@@ -31,3 +31,8 @@ FridgeClear 是一个 AI Native 的食材消耗与备餐规划助手，核心目
 4. 打开 API 文档：<http://localhost:8080/doc.html>
 
 HowToCook 源码目录和 `.env` 不提交到 Git，数据库表会由 Flyway 自动创建和升级。
+
+## 开发计划
+
+当前阶段与任务清单见 **[docs/ROADMAP.md](docs/ROADMAP.md)**。  
+现阶段集中 **界面优化**，完成后再进入推荐算法、收藏、异步备餐等功能。
