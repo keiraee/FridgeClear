@@ -64,10 +64,14 @@ async function handleGenerate() {
     plan.value = await generateMealPlan({ ...config })
     await loadHistory()
   } catch (error) {
-    const axiosError = error as { code?: string; response?: { data?: { message?: string } } }
-    generationError.value = axiosError.code === 'ECONNABORTED'
-      ? 'AI 响应时间较长，请稍后重试或检查模型服务状态。'
-      : axiosError.response?.data?.message ?? '生成失败，请稍后重试。'
+    const axiosError = error as { code?: string; response?: { status?: number; data?: { code?: string; message?: string } } }
+    if (axiosError.response?.data?.code === 'AI_SERVICE_UNAVAILABLE' || axiosError.response?.status === 503) {
+      generationError.value = 'AI 服务暂不可用，请稍后再试。'
+    } else if (axiosError.code === 'ECONNABORTED') {
+      generationError.value = 'AI 响应时间较长，请稍后重试或检查模型服务状态。'
+    } else {
+      generationError.value = axiosError.response?.data?.message ?? '生成失败，请稍后重试。'
+    }
   } finally {
     isGenerating.value = false
     stopProgressTimer()
@@ -150,21 +154,6 @@ loadHistory()
         <p class="overline">AI MEAL PLANNER</p>
         <h1>AI 备餐计划</h1>
         <p class="page-desc">告诉 AI 你的需求和限制，生成一份专属备餐计划。</p>
-      </div>
-
-      <div class="plan-history-card">
-        <div class="section-head compact">
-          <div><p class="overline">SAVED PLANS</p><h2>历史备餐计划</h2></div>
-          <span class="list-count">{{ historyLoading ? '加载中…' : `${historyPlans.length} 份` }}</span>
-        </div>
-        <p v-if="!historyLoading && !historyPlans.length" class="empty-copy">还没有保存的计划，生成后会自动出现在这里。</p>
-        <div v-else class="plan-history-list">
-          <button v-for="item in historyPlans" :key="item.id" class="plan-history-item" type="button" :class="{ selected: plan?.id === item.id }" @click="openHistory(item)">
-            <span><strong>{{ item.title }}</strong><small>{{ item.startDate }} 至 {{ item.endDate }}</small></span>
-            <em>{{ item.status === 'ACTIVE' ? '进行中' : '已归档' }}</em>
-          </button>
-        </div>
-        <button v-if="plan" class="archive-plan-btn" type="button" @click="archiveCurrentPlan">归档当前计划</button>
       </div>
 
       <!-- Config Form -->
@@ -275,6 +264,22 @@ loadHistory()
           </button>
           <p v-if="generationError" class="form-error">{{ generationError }}</p>
         </div>
+      </div>
+
+      <!-- History -->
+      <div class="plan-history-card">
+        <div class="section-head compact">
+          <div><p class="overline">SAVED PLANS</p><h2>历史备餐计划</h2></div>
+          <span class="list-count">{{ historyLoading ? '加载中…' : `${historyPlans.length} 份` }}</span>
+        </div>
+        <p v-if="!historyLoading && !historyPlans.length" class="empty-copy">还没有保存的计划，生成后会自动出现在这里。</p>
+        <div v-else class="plan-history-list">
+          <button v-for="item in historyPlans" :key="item.id" class="plan-history-item" type="button" :class="{ selected: plan?.id === item.id }" @click="openHistory(item)">
+            <span><strong>{{ item.title }}</strong><small>{{ item.startDate }} 至 {{ item.endDate }}</small></span>
+            <em>{{ item.status === 'ACTIVE' ? '进行中' : '已归档' }}</em>
+          </button>
+        </div>
+        <button v-if="plan" class="archive-plan-btn" type="button" @click="archiveCurrentPlan">归档当前计划</button>
       </div>
     </section>
 

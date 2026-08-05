@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -50,6 +51,31 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AuthenticationFailedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationFailedException exception, HttpServletRequest request) {
         return response(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", exception.getMessage(), null, request);
+    }
+
+    @ExceptionHandler(AiServiceUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiUnavailable(AiServiceUnavailableException exception, HttpServletRequest request) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, "AI_SERVICE_UNAVAILABLE", exception.getMessage(), null, request);
+    }
+
+    @ExceptionHandler(FeatureDisabledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleFeatureDisabled(FeatureDisabledException exception, HttpServletRequest request) {
+        return response(HttpStatus.FORBIDDEN, "FEATURE_DISABLED", exception.getMessage(), null, request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException exception, HttpServletRequest request) {
+        return response(HttpStatus.FORBIDDEN, "FORBIDDEN", "无权访问该资源", null, request);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException exception, HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", exception.getMessage(), null, request);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalState(IllegalStateException exception, HttpServletRequest request) {
+        return response(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", exception.getMessage(), null, request);
     }
 
     private <T> ResponseEntity<ApiResponse<T>> response(

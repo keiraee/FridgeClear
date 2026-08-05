@@ -9,11 +9,20 @@ interface BackendPlan {
   shoppingList: NonNullable<MealPlan['shoppingList']>
 }
 
-interface MealPlanListResponse {
-  items: Array<{ id: number; title: string; startDate: string; endDate: string; status: MealPlan['status'] }>
+interface BackendPlanList {
+  content: Array<{ id: number; title: string; startDate: string; endDate: string; status: MealPlan['status'] }>
   page: number
   size: number
-  total: number
+  totalElements: number
+  totalPages: number
+}
+
+export interface MealPlanList {
+  items: BackendPlanList['content']
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
 }
 
 export async function generateMealPlan(payload: MealPlanGenerateRequest): Promise<MealPlan> {
@@ -33,9 +42,10 @@ export async function generateMealPlan(payload: MealPlanGenerateRequest): Promis
   }
 }
 
-export async function listMealPlans() {
-  const response = await http.get<ApiResponse<MealPlanListResponse>>('/meal-plans', { params: { page: 0, size: 20 } })
-  return response.data.data
+export async function listMealPlans(): Promise<MealPlanList> {
+  const response = await http.get<ApiResponse<BackendPlanList>>('/meal-plans', { params: { page: 0, size: 20 } })
+  const data = response.data.data
+  return { items: data.content, page: data.page, size: data.size, totalElements: data.totalElements, totalPages: data.totalPages }
 }
 
 export async function getMealPlan(id: number): Promise<MealPlan> {

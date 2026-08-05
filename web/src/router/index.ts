@@ -26,14 +26,26 @@ const router = createRouter({
       meta: { requiresAuth: true },
       component: () => import('../views/PantryView.vue'),
     },
+    {
+      path: '/admin/ai-config',
+      name: 'adminAiConfig',
+      meta: { requiresAuth: true, requiresAdmin: true },
+      component: () => import('../views/AdminAiConfig.vue'),
+    },
     { path: '/login', name: 'login', component: () => import('../views/AuthView.vue') },
     { path: '/register', name: 'register', component: () => import('../views/AuthView.vue') },
   ],
 })
 
 router.beforeEach((to) => {
-  if (to.meta.requiresAuth && !localStorage.getItem('fridgeclear_access_token')) return '/login'
-  if ((to.name === 'login' || to.name === 'register') && localStorage.getItem('fridgeclear_access_token')) return '/'
+  const token = localStorage.getItem('fridgeclear_access_token')
+  if (to.meta.requiresAuth && !token) return '/login'
+  if (to.meta.requiresAdmin) {
+    const raw = localStorage.getItem('fridgeclear_user')
+    const user = raw ? (JSON.parse(raw) as { role?: string }) : null
+    if (!user || user.role !== 'ADMIN') return '/'
+  }
+  if ((to.name === 'login' || to.name === 'register') && token) return '/'
 })
 
 export default router

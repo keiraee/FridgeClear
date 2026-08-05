@@ -7,16 +7,22 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 
-const navItems = [
-  { label: '首页', path: '/' },
-  { label: '菜谱', path: '/recipes' },
-  { label: '备餐计划', path: '/meal-plan' },
-  { label: '我的冰箱', path: '/pantry' },
-]
+const navItems = computed(() => {
+  const items = [
+    { label: '首页', path: '/' },
+    { label: '菜谱', path: '/recipes' },
+    { label: '备餐计划', path: '/meal-plan' },
+    { label: '我的冰箱', path: '/pantry' },
+  ]
+  if (auth.user?.role === 'ADMIN') items.push({ label: '管理', path: '/admin/ai-config' })
+  return items
+})
 
 const activeNav = computed(() => {
   if (route.path === '/') return '/'
-  return navItems.find((n) => route.path.startsWith(n.path))?.path ?? '/'
+  const matched = navItems.value.filter((n) => n.path !== '/' && route.path.startsWith(n.path))
+  matched.sort((a, b) => b.path.length - a.path.length)
+  return matched[0]?.path ?? '/'
 })
 
 function navigate(path: string) {

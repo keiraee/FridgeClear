@@ -20,6 +20,11 @@ http.interceptors.response.use(
       localStorage.removeItem('fridgeclear_user')
       window.dispatchEvent(new Event('fridgeclear:unauthorized'))
     }
+    if (error.response?.status === 403) {
+      window.dispatchEvent(new CustomEvent('fridgeclear:forbidden', {
+        detail: error.response?.data?.message ?? '无权访问该资源',
+      }))
+    }
     return Promise.reject(error)
   },
 )

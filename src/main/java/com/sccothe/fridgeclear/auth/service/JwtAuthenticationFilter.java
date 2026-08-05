@@ -1,5 +1,7 @@
 package com.sccothe.fridgeclear.auth.service;
 
+import com.sccothe.fridgeclear.auth.domain.UserAccount;
+import com.sccothe.fridgeclear.auth.repository.UserAccountRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,7 +19,12 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
-    public JwtAuthenticationFilter(JwtService jwtService) { this.jwtService = jwtService; }
+    private final UserAccountRepository userRepository;
+
+    public JwtAuthenticationFilter(JwtService jwtService, UserAccountRepository userRepository) {
+        this.jwtService = jwtService;
+        this.userRepository = userRepository;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -26,9 +33,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             try {
                 Claims claims = jwtService.parse(header.substring(7));
-                String userId = claims.getSubject();
-                String role = claims.get("role", String.class);
-                var authentication = new UsernamePasswordAuthenticationToken(userId, null,
+                Long userId = Long.parseLong(claims.getSubject());
+                UserAccount user = userRepository.findById(userId).orElse(null);
+                if (user == null || user.getStatus() != UserAccount.UserStatus.ACTIVE) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
+                String role = user.getRole().name();
+                var authentication = new UsernamePasswordAuthenticationToken(userId.toString(), null,
                         List.of(new SimpleGrantedAuthority("ROLE_" + role)));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (RuntimeException ignored) {

@@ -48,6 +48,16 @@ fridgeclear:
     media-root: ${HOWTOCOOK_MEDIA_ROOT:data/source/HowToCook/dishes}
   ai:
     encryption-key: ${AI_PROVIDER_ENCRYPTION_KEY:}
+    byok-enabled: ${AI_BYOK_ENABLED:false}
+    platform:
+      provider-name: ${AI_PLATFORM_PROVIDER_NAME:}
+      protocol: ${AI_PLATFORM_PROTOCOL:OPENAI_CHAT}
+      base-url: ${AI_PLATFORM_BASE_URL:}
+      model-name: ${AI_PLATFORM_MODEL_NAME:}
+      api-key: ${AI_PLATFORM_API_KEY:}
+  admin:
+    bootstrap-email: ${ADMIN_BOOTSTRAP_EMAIL:}
+    bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
   auth:
     jwt-secret: ${AUTH_JWT_SECRET:}
     jwt-expiration-seconds: ${AUTH_JWT_EXPIRATION_SECONDS:7200}

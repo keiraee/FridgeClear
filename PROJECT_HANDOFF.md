@@ -48,7 +48,8 @@
 - 食材归一化、别名合并和库存绑定；
 - 基于当前库存的菜谱推荐；
 - AI Provider 增删改、激活、连接测试、模型发现；
-- AI 生成多日备餐计划；
+- 全局 AI 配置（system_ai_config）与管理端接口（仅 ADMIN）；
+- AI 生成多日备餐计划（全局配置优先，回退用户自配 Provider）；
 - 计划历史、详情、归档；
 - 计划项状态、购物清单及购买状态；
 - Knife4j/OpenAPI 文档；
@@ -65,6 +66,7 @@
 - 菜谱列表、搜索、分类和图片；
 - 我的冰箱真实新增、查询、删除、标记已用完；
 - 备餐计划真实 AI 生成、耗时阶段提示、历史加载、归档；
+- 管理端全局 AI 配置页（仅 ADMIN 可见入口和路由）；
 - 计划项和购物项状态同步后端。
 
 已验证过的真实链路：登录拿 Token → 当前用户接口 → 库存 CRUD → 菜谱导入/搜索/图片 → 食材归一化 → AI Provider 测试 → AI 生成计划 → 刷新后读取计划 → 更新烹饪/购物状态 → 计划归档。
@@ -160,7 +162,16 @@ DB_USE_SSL=true
 AI_PROVIDER_ENCRYPTION_KEY=Base64密钥
 AUTH_JWT_SECRET=Base64密钥
 AUTH_JWT_EXPIRATION_SECONDS=7200
+AI_PLATFORM_PROVIDER_NAME=全局AI服务名称（可选）
+AI_PLATFORM_PROTOCOL=OPENAI_CHAT
+AI_PLATFORM_BASE_URL=全局AI服务地址（可选）
+AI_PLATFORM_MODEL_NAME=全局默认模型（可选）
+AI_PLATFORM_API_KEY=全局平台API Key（可选）
+ADMIN_BOOTSTRAP_EMAIL=首个管理员邮箱（可选）
+ADMIN_BOOTSTRAP_PASSWORD=首个管理员密码（可选）
 ```
+
+`AI_PLATFORM_*` 是**种子配置**：仅当 `system_ai_config` 表为空时首次启动写入一次，之后由管理端页面（`/admin/ai-config`）维护，不再读取环境变量。`ADMIN_BOOTSTRAP_*` 每次启动都会检查：邮箱用户已存在则提升为 ADMIN，不存在且有密码则创建。
 
 启动后端：
 
@@ -202,15 +213,22 @@ npm run dev
 | 推荐 | `/api/v1/recommendations` | 根据库存推荐 |
 | 计划 | `/api/v1/meal-plans` | AI 生成、历史、详情、归档 |
 | 购物 | `/api/v1/shopping-list-items` | 购物清单状态 |
-| Provider | `/api/v1/ai/providers` | 配置、激活、测试、模型发现 |
-| 导入 | `/api/v1/admin/imports` | HowToCook 导入 |
-| 归一化 | `/api/v1/admin/ingredients` | 别名和库存绑定 |
+| Provider | `/api/v1/ai/providers` | 用户自配 Provider：配置、激活、测试、模型发现 |
+| 全局 AI | `/api/v1/admin/ai/config` | 全局 AI 配置、模型列表、连接测试（仅 ADMIN） |
+| 导入 | `/api/v1/admin/imports` | HowToCook 导入（仅 ADMIN） |
+| 归一化 | `/api/v1/admin/ingredients` | 别名和库存绑定（仅 ADMIN） |
+
+`/api/v1/admin/**` 全部要求 `ROLE_ADMIN`（`SecurityConfig` 中 `hasRole("ADMIN")`）。
 
 所有受保护接口必须使用当前用户，不能重新引入固定的 `DEMO_USER_ID` 或 `userId=1`。
 
 ## 8. AI Provider 现状
 
-产品允许用户保存多个 Provider，并选择一个激活配置；API Key 加密保存，接口不返回明文。
+消费级定位：**普通用户不需要配置 API Key**。生成备餐计划时 `AiChatGateway` 优先使用全局配置（`system_ai_config` 单行表，管理端维护），全局未配置/未启用时回退到用户自配 Provider（为未来 BYOK 预留）。用户端没有 AI 设置页。
+
+API Key 加密保存（AES-GCM），接口不返回明文。协议公共逻辑（模型发现、Base URL 归一化、异常脱敏）已抽到 `AiProtocolSupport`，用户自配 Provider 与全局配置共用。
+
+产品保留用户保存多个 Provider 并选择一个激活配置的能力；API Key 加密保存，接口不返回明文。
 
 模型发现层已考虑：
 
@@ -235,8 +253,7 @@ AiChatGateway
 
 ### 高优先级
 
-- AI Provider 还没有完整的前端设置页，主要依靠 Knife4j；
-- 未配置/未激活 Provider 时，部分 `IllegalStateException` 仍可能变成不友好的 500，应统一为结构化业务错误；
+- 用户自配 Provider 的前端管理页尚未实现，主要依靠 Knife4j（全局配置页 `/admin/ai-config` 已完成，按需再补用户 Provider 管理）；
 - 备餐生成是同步请求，模型慢时等待 1–3 分钟，尚无真正异步进度；
 - 需要继续检查页面加载、点击反馈、空状态、错误重试和移动端适配。
 
@@ -270,7 +287,7 @@ AiChatGateway
 
 ### 阶段二：前端产品闭环
 
-1. AI Provider 管理页：新增、编辑、删除、激活、模型发现、连接测试；
+1. ✅ 全局 AI 配置页（`/admin/ai-config`，仅 ADMIN）；用户自配 Provider 管理页视 BYOK 需求再补；
 2. 菜谱详情页：封面、食材、步骤、图片、来源、加入计划；
 3. 首页接入真实推荐接口；
 4. 实现收藏和个人菜谱筛选；
