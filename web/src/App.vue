@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PageHeader from './components/PageHeader.vue'
 import PageFooter from './components/PageFooter.vue'
+import AppToast from './components/AppToast.vue'
 </script>
 
 <template>
@@ -13,5 +14,6 @@ import PageFooter from './components/PageFooter.vue'
       <component :is="Component" v-if="!route.meta.keepAlive" :key="route.name" />
     </router-view>
     <PageFooter />
+    <AppToast />
   </div>
 </template>

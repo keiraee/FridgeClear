@@ -417,6 +417,11 @@ input, select, textarea { font: inherit; }
 
 .top-nav button.active::after { transform: scaleX(1); }
 
+/* Mobile bottom navigation — hidden on desktop */
+.bottom-nav {
+  display: none;
+}
+
 /* Header actions */
 .header-actions {
   margin-left: auto;
@@ -740,12 +745,46 @@ input, select, textarea { font: inherit; }
 .hero-data-error {
   color: var(--gray-text);
   font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--sage-border);
+  background: var(--white);
+}
+
+.loading-copy {
+  border-color: var(--sage-border);
+  background: var(--sage-light);
+  color: var(--deep-green);
+}
+
+.empty-copy {
+  background: var(--cream);
 }
 
 .error-copy,
-.hero-data-error { color: #bd4c35; }
+.hero-data-error {
+  color: #bd4c35;
+  border-color: #f0c4b8;
+  background: #fff6f3;
+}
+
 .loading-state h3 { margin: 16px 0 4px; color: var(--deep-green); }
 .loading-tip { color: var(--gray-muted); font-size: 13px; }
+
+button:disabled,
+.cta-primary:disabled,
+.secondary-btn:disabled,
+.generate-btn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.secondary-btn:hover {
+  border-color: var(--sage);
+  color: var(--deep-green);
+}
 
 .recipe-image .card-save,
 .recipe-image .match-badge { z-index: 2; }
@@ -1637,7 +1676,7 @@ input, select, textarea { font: inherit; }
     height: auto;
     min-height: 56px;
     padding: 10px 16px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 10px;
   }
 
@@ -1645,46 +1684,102 @@ input, select, textarea { font: inherit; }
   .logo mark { width: 28px; height: 28px; font-size: 15px; }
 
   .top-nav {
-    order: 3;
-    width: 100%;
-    height: 38px;
-    justify-content: space-between;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    display: none;
   }
 
-  .top-nav button {
-    padding: 0 10px;
-    font-size: 13px;
-    flex-shrink: 0;
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 8px env(safe-area-inset-bottom, 0px);
+    background: var(--white);
+    border-top: 1px solid var(--sage-border);
+    box-shadow: 0 -4px 16px rgba(31, 54, 48, 0.06);
   }
-  .top-nav button::after { left: 10px; right: 10px; }
+
+  .bottom-nav button {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    border: 0;
+    background: transparent;
+    color: var(--gray-muted);
+    font-size: 11px;
+    font-weight: 500;
+    min-height: 44px;
+    padding: 4px 2px;
+    cursor: pointer;
+  }
+
+  .bottom-nav button.active {
+    color: var(--deep-green);
+    font-weight: 700;
+  }
+
+  .bottom-nav-icon {
+    display: grid;
+    place-items: center;
+  }
+
+  .site-shell {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  }
 
   .header-actions { margin-left: auto; }
-  .icon-btn, .sign-in-btn { display: none; }
+  .user-greeting { display: none; }
+  .icon-btn { display: none; }
+  .sign-in-btn {
+    display: inline-flex;
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: 36px;
+  }
   .search-btn span { display: none; }
   .search-btn { padding: 8px 10px; }
 
   .page-main { padding: 0 16px 40px; }
 
   .hero-banner {
-    padding: 32px 0 28px;
-    gap: 20px;
+    padding: 24px 0 20px;
+    gap: 16px;
   }
 
-  .hero-copy h1 { font-size: 36px; }
+  .hero-copy h1 {
+    font-size: 32px;
+    line-height: 1.15;
+  }
 
-  .hero-description { font-size: 14px; }
+  .hero-description {
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
 
   .hero-status {
     grid-template-columns: repeat(3, 1fr);
-    padding: 18px 14px;
-    gap: 4px;
+    padding: 14px 10px;
+    gap: 2px;
   }
 
-  .status-stat { flex-direction: column; align-items: center; gap: 4px; padding: 6px; }
-  .status-stat .stat-value { font-size: 20px; }
-  .status-stat .stat-label { font-size: 11px; }
+  .status-stat { flex-direction: column; align-items: center; gap: 2px; padding: 4px; }
+  .status-stat .stat-value { font-size: 18px; }
+  .status-stat .stat-label { font-size: 10px; }
+
+  .auth-page {
+    padding: 40px 16px 80px;
+  }
+
+  .auth-card {
+    padding: 28px 20px;
+  }
+
+  .auth-card h1 {
+    font-size: 26px;
+  }
 
   .section-head { flex-direction: column; align-items: flex-start; gap: 6px; }
   .section-head h2 { font-size: 21px; }

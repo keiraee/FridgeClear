@@ -273,7 +273,14 @@ watch(recipeId, () => loadDetail())
 }
 
 .detail-cover-fallback {
-  font-size: 72px;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  border: 3px solid rgba(255, 255, 255, 0.55);
+  font-size: 42px;
 }
 
 .detail-intro h1 {
@@ -480,7 +487,9 @@ watch(recipeId, () => loadDetail())
   }
 
   .detail-cover-fallback {
-    font-size: 56px;
+    width: 72px;
+    height: 72px;
+    font-size: 32px;
   }
 
   .detail-cta {
