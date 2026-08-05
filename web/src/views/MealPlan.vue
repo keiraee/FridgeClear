@@ -1,17 +1,21 @@
 <script setup lang="ts">
-import { ref, reactive, watch, computed, onUnmounted } from 'vue'
+import { ref, reactive, watch, computed, onUnmounted, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import type { MealPlan, MealPlanGenerateRequest, MealType, MealPlanItemStatus } from '../types'
-import { archiveMealPlan, generateMealPlan, getMealPlan, listMealPlans, updateMealPlanItemStatus, updateShoppingItemStatus } from '../api/mealPlans'
+import { archiveMealPlan, generateMealPlan, getMealPlan, updateMealPlanItemStatus, updateShoppingItemStatus } from '../api/mealPlans'
+import { useMealPlansStore } from '../stores/mealPlans'
 import MealPlanResult from '../components/MealPlanResult.vue'
 
-// --- State ---
+defineOptions({ name: 'MealPlan' })
+
+const mealPlansStore = useMealPlansStore()
+const { history: historyPlans, loading: historyLoading } = storeToRefs(mealPlansStore)
+
 const config = reactive<MealPlanGenerateRequest>({
   days: 3, peopleCount: 2, maxCookingMinutes: 30, mealTypes: ['DINNER'],
   dietaryPreference: '家常菜', dislikedIngredients: [], availableAppliances: ['炒锅'],
 })
 const plan = ref<MealPlan | null>(null)
-const historyPlans = ref<Array<{ id: number; title: string; startDate: string; endDate: string; status: MealPlan['status'] }>>([])
-const historyLoading = ref(false)
 const isGenerating = ref(false)
 const generationError = ref('')
 const elapsedSeconds = ref(0)
@@ -62,6 +66,7 @@ async function handleGenerate() {
 
   try {
     plan.value = await generateMealPlan({ ...config })
+    mealPlansStore.invalidate()
     await loadHistory()
   } catch (error) {
     const axiosError = error as { code?: string; response?: { status?: number; data?: { code?: string; message?: string } } }
@@ -79,10 +84,7 @@ async function handleGenerate() {
 }
 
 async function loadHistory() {
-  historyLoading.value = true
-  try { historyPlans.value = (await listMealPlans()).items }
-  catch { /* 主流程不因历史列表失败而中断 */ }
-  finally { historyLoading.value = false }
+  await mealPlansStore.fetchHistory()
 }
 
 async function openHistory(item: { id: number }) {
@@ -95,6 +97,7 @@ async function archiveCurrentPlan() {
   try {
     await archiveMealPlan(plan.value.id)
     plan.value = null
+    mealPlansStore.invalidate()
     await loadHistory()
   } catch { generationError.value = '归档备餐计划失败' }
 }
@@ -144,7 +147,7 @@ async function handleToggleShoppingItem(itemId: number) {
 // Reset error when config changes
 watch(() => config.mealTypes, () => { generationError.value = '' })
 onUnmounted(stopProgressTimer)
-loadHistory()
+onMounted(() => { void loadHistory() })
 </script>
 
 <template>

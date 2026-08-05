@@ -1,24 +1,27 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import PantryStatus from '../components/PantryStatus.vue'
 import RecipeCard from '../components/RecipeCard.vue'
-import { getRecipes } from '../api/recipes'
-import { getPantryItems } from '../api/pantry'
 import { useAuthStore } from '../stores/auth'
-import type { PantryItem, RecipeSummary } from '../types'
+import { usePantryStore } from '../stores/pantry'
+import { useRecipesStore } from '../stores/recipes'
+
+defineOptions({ name: 'Dashboard' })
 
 const router = useRouter()
 const auth = useAuthStore()
+const pantryStore = usePantryStore()
+const recipesStore = useRecipesStore()
+
+const { availableItems, expiringCount, loading: loadingPantry, error: pantryError } = storeToRefs(pantryStore)
 
 const activeFilter = ref('热门')
 const activeMealType = ref<string | null>(null)
-const recipes = ref<RecipeSummary[]>([])
-const pantryItems = ref<PantryItem[]>([])
+const recipes = ref<Awaited<ReturnType<typeof recipesStore.fetchPreview>>['items']>([])
 const loadingRecipes = ref(false)
-const loadingPantry = ref(false)
 const recipeError = ref('')
-const pantryError = ref('')
 
 const filters = ['热门', '快手菜', '一锅料理', '健康轻食', '早餐', '午餐', '晚餐', '汤羹']
 
@@ -29,28 +32,29 @@ const mealTypes = [
   { key: 'dessert', label: '🍰 甜点' },
 ]
 
-const filteredRecipes = computed(() => {
-  return recipes.value
-})
+const filteredRecipes = computed(() => recipes.value)
 
-const categoryLabels: Record<string, string> = {
-  AQUATIC: '水产', BREAKFAST: '早餐', CONDIMENT: '调味品', DESSERT: '甜点',
-  DRINK: '饮品', MEAT_DISH: '肉菜', SEMI_FINISHED: '半成品', SOUP: '汤羹',
-  STAPLE: '主食', VEGETABLE_DISH: '素菜', UNKNOWN: '其他',
-}
+const pantrySummary = computed(() => ({
+  totalItems: availableItems.value.length,
+  expiringSoon: expiringCount.value,
+  recipesAvailable: recipes.value.length,
+}))
 
 async function loadRecipes() {
   if (!auth.isAuthenticated) return
+  const previewQuery = { page: 0, size: 8 }
+  const cached = recipesStore.getCachedPage(previewQuery)
+  if (cached) {
+    recipes.value = cached.items
+    recipeError.value = recipesStore.getError(previewQuery)
+    return
+  }
   loadingRecipes.value = true
   recipeError.value = ''
   try {
-    const result = await getRecipes({ page: 0, size: 8 })
-    recipes.value = result.items.map((recipe) => ({
-      ...recipe,
-      category: categoryLabels[recipe.category] ?? recipe.category,
-    }))
-  } catch {
-    recipeError.value = '菜谱加载失败，请确认后端服务已启动'
+    const result = await recipesStore.fetchPreview(8)
+    recipes.value = result.items
+    recipeError.value = recipesStore.getError(previewQuery)
   } finally {
     loadingRecipes.value = false
   }
@@ -58,22 +62,8 @@ async function loadRecipes() {
 
 async function loadPantry() {
   if (!auth.isAuthenticated) return
-  loadingPantry.value = true
-  pantryError.value = ''
-  try {
-    pantryItems.value = (await getPantryItems({ status: 'AVAILABLE', page: 0, size: 100 })).items
-  } catch {
-    pantryError.value = '库存加载失败'
-  } finally {
-    loadingPantry.value = false
-  }
+  await pantryStore.fetchAvailable()
 }
-
-const pantrySummary = computed(() => ({
-  totalItems: pantryItems.value.length,
-  expiringSoon: pantryItems.value.filter((item) => item.expiringSoon ?? item.isExpiringSoon).length,
-  recipesAvailable: recipes.value.length,
-}))
 
 function goToMealPlan() {
   router.push('/meal-plan')
@@ -123,7 +113,7 @@ onMounted(() => {
           <p class="overline">WEEKLY INSPIRATION</p>
           <h2>今天想吃什么？</h2>
         </div>
-        <button class="view-all" type="button">查看全部菜谱 →</button>
+        <button class="view-all" type="button" @click="router.push('/recipes')">查看全部菜谱 →</button>
       </div>
 
       <!-- Filter pills -->

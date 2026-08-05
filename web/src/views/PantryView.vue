@@ -1,26 +1,27 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createPantryItem, deletePantryItem, getPantryItems, updatePantryStatus, type PantryItemPayload } from '../api/pantry'
+import { storeToRefs } from 'pinia'
+import { usePantryStore } from '../stores/pantry'
 import type { PantryItem } from '../types'
+import type { PantryItemPayload } from '../api/pantry'
 
-const items = ref<PantryItem[]>([])
-const loading = ref(false)
+defineOptions({ name: 'Pantry' })
+
+const pantryStore = usePantryStore()
+const { availableItems, loading, error: errorMessage } = storeToRefs(pantryStore)
+
 const submitting = ref(false)
-const errorMessage = ref('')
 const showForm = ref(false)
 const form = reactive<PantryItemPayload>({ rawName: '', quantity: 1, unit: '个', expireDate: '', note: '' })
 const customUnit = ref('')
 const unitOptions = ['个', '只', '条', '根', '把', '块', '片', '瓣', '盒', '袋', '瓶', '罐', '包', '份', '克', '千克', '毫升', '升', '斤']
 
-const availableItems = computed(() => items.value.filter((item) => item.status === 'AVAILABLE'))
-const expiringItems = computed(() => availableItems.value.filter((item) => item.expiringSoon ?? item.isExpiringSoon))
+const expiringItems = computed(() =>
+  availableItems.value.filter((item) => item.expiringSoon ?? item.isExpiringSoon),
+)
 
 async function loadItems() {
-  loading.value = true
-  errorMessage.value = ''
-  try { items.value = (await getPantryItems({ status: 'AVAILABLE', page: 0, size: 100 })).items }
-  catch { errorMessage.value = '库存加载失败，请确认后端服务已启动' }
-  finally { loading.value = false }
+  await pantryStore.fetchAvailable()
 }
 
 async function submit() {
@@ -32,33 +33,41 @@ async function submit() {
   submitting.value = true
   errorMessage.value = ''
   try {
-    const created = await createPantryItem({ ...form, rawName: form.rawName.trim(), unit })
-    items.value.unshift(created)
+    await pantryStore.addItem({ ...form, rawName: form.rawName.trim(), unit })
     Object.assign(form, { rawName: '', quantity: 1, unit: '个', expireDate: '', note: '' })
     customUnit.value = ''
     showForm.value = false
   } catch (error) {
     errorMessage.value = (error as { response?: { data?: { message?: string } } }).response?.data?.message ?? '新增库存失败'
-  } finally { submitting.value = false }
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function markUsed(item: PantryItem) {
   try {
-    await updatePantryStatus(item.id, 'USED_UP')
-    items.value = items.value.filter((current) => current.id !== item.id)
-  } catch { errorMessage.value = '更新库存状态失败' }
+    await pantryStore.markUsed(item.id)
+  } catch {
+    errorMessage.value = '更新库存状态失败'
+  }
 }
 
 async function remove(item: PantryItem) {
   if (!window.confirm(`确定删除「${item.rawName}」吗？`)) return
   try {
-    await deletePantryItem(item.id)
-    items.value = items.value.filter((current) => current.id !== item.id)
-  } catch { errorMessage.value = '删除库存失败' }
+    await pantryStore.removeItem(item.id)
+  } catch {
+    errorMessage.value = '删除库存失败'
+  }
 }
 
-function displayName(item: PantryItem) { return item.ingredientName || item.canonicalName || item.rawName }
-function formatQuantity(item: PantryItem) { return `${item.quantity ?? '-'} ${item.unit ?? ''}`.trim() }
+function displayName(item: PantryItem) {
+  return item.ingredientName || item.canonicalName || item.rawName
+}
+
+function formatQuantity(item: PantryItem) {
+  return `${item.quantity ?? '-'} ${item.unit ?? ''}`.trim()
+}
 
 onMounted(loadItems)
 </script>

@@ -15,12 +15,19 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const url = typeof error.config?.url === 'string' ? error.config.url : ''
+
+    if (status === 401) {
       localStorage.removeItem('fridgeclear_access_token')
       localStorage.removeItem('fridgeclear_user')
       window.dispatchEvent(new Event('fridgeclear:unauthorized'))
-    }
-    if (error.response?.status === 403) {
+    } else if (status === 403 && !url.includes('/admin/')) {
+      // 非管理接口的 403 多半是登录态失效，按未登录处理
+      localStorage.removeItem('fridgeclear_access_token')
+      localStorage.removeItem('fridgeclear_user')
+      window.dispatchEvent(new Event('fridgeclear:unauthorized'))
+    } else if (status === 403) {
       window.dispatchEvent(new CustomEvent('fridgeclear:forbidden', {
         detail: error.response?.data?.message ?? '无权访问该资源',
       }))

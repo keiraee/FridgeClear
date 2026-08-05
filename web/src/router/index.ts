@@ -6,24 +6,25 @@ const router = createRouter({
     {
       path: '/',
       name: 'dashboard',
+      meta: { keepAlive: true },
       component: () => import('../views/Dashboard.vue'),
     },
     {
       path: '/meal-plan',
       name: 'mealPlan',
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, keepAlive: true },
       component: () => import('../views/MealPlan.vue'),
     },
     {
       path: '/recipes',
       name: 'recipes',
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, keepAlive: true },
       component: () => import('../views/RecipesView.vue'),
     },
     {
       path: '/pantry',
       name: 'pantry',
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, keepAlive: true },
       component: () => import('../views/PantryView.vue'),
     },
     {

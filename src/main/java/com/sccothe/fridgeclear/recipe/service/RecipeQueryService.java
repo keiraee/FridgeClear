@@ -11,6 +11,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Service
 @Transactional(readOnly = true)
 public class RecipeQueryService {
@@ -47,16 +52,35 @@ public class RecipeQueryService {
         } else {
             result = recipeRepository.findByStatus(RecipeEnums.Status.ACTIVE, pageable);
         }
+        List<Recipe> recipes = result.getContent();
+        List<Long> recipeIds = recipes.stream().map(Recipe::getId).toList();
+        Map<Long, Integer> ingredientCounts = loadIngredientCounts(recipeIds);
+        Map<Long, String> coverImageUrls = loadCoverImageUrls(recipeIds);
         return new RecipeDtos.ListResponse(
-                result.getContent().stream().map(recipe -> RecipeDtos.ListItem.from(
+                recipes.stream().map(recipe -> RecipeDtos.ListItem.from(
                         recipe,
-                        (int) ingredientRepository.countByRecipeId(recipe.getId()),
-                        mediaRepository.findByRecipeIdOrderBySortOrderAsc(recipe.getId()).stream()
-                                .findFirst()
-                                .map(media -> "/api/v1/recipes/" + recipe.getId() + "/media/" + media.getSortOrder())
-                                .orElse(null)
+                        ingredientCounts.getOrDefault(recipe.getId(), 0),
+                        coverImageUrls.get(recipe.getId())
                 )).toList(),
                 result.getNumber(), result.getSize(), result.getTotalElements());
+    }
+
+    private Map<Long, Integer> loadIngredientCounts(List<Long> recipeIds) {
+        if (recipeIds.isEmpty()) return Map.of();
+        return ingredientRepository.findByRecipeIdIn(recipeIds).stream()
+                .collect(Collectors.groupingBy(
+                        com.sccothe.fridgeclear.recipe.domain.RecipeIngredient::getRecipeId,
+                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
+    }
+
+    private Map<Long, String> loadCoverImageUrls(List<Long> recipeIds) {
+        if (recipeIds.isEmpty()) return Map.of();
+        Map<Long, String> coverImageUrls = new HashMap<>();
+        for (var media : mediaRepository.findByRecipeIdInOrderByRecipeIdAscSortOrderAsc(recipeIds)) {
+            coverImageUrls.putIfAbsent(media.getRecipeId(),
+                    "/api/v1/recipes/" + media.getRecipeId() + "/media/" + media.getSortOrder());
+        }
+        return coverImageUrls;
     }
 
     public RecipeDtos.Detail detail(Long id) {

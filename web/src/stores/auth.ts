@@ -1,6 +1,9 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { currentUser, login, register, type AuthRequest, type UserResponse } from '../api/auth'
+import { useMealPlansStore } from './mealPlans'
+import { usePantryStore } from './pantry'
+import { useRecipesStore } from './recipes'
 
 const TOKEN_KEY = 'fridgeclear_access_token'
 const USER_KEY = 'fridgeclear_user'
@@ -46,8 +49,16 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    usePantryStore().reset()
+    useRecipesStore().reset()
+    useMealPlansStore().reset()
   }
 
-  window.addEventListener('fridgeclear:unauthorized', signOut)
+  window.addEventListener('fridgeclear:unauthorized', () => {
+    signOut()
+    if (window.location.hash !== '#/login' && window.location.hash !== '#/register') {
+      window.location.hash = '#/login'
+    }
+  })
   return { user, token, isAuthenticated, signIn, signUp, restore, signOut }
 })

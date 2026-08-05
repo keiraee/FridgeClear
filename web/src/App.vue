@@ -6,7 +6,12 @@ import PageFooter from './components/PageFooter.vue'
 <template>
   <div class="site-shell">
     <PageHeader />
-    <router-view />
+    <router-view v-slot="{ Component, route }">
+      <keep-alive>
+        <component :is="Component" v-if="route.meta.keepAlive" :key="route.name" />
+      </keep-alive>
+      <component :is="Component" v-if="!route.meta.keepAlive" :key="route.name" />
+    </router-view>
     <PageFooter />
   </div>
 </template>
