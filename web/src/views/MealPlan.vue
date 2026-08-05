@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed, onUnmounted, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import type { MealPlan, MealPlanGenerateRequest, MealType, MealPlanItemStatus } from '../types'
 import { archiveMealPlan, generateMealPlan, getMealPlan, updateMealPlanItemStatus, updateShoppingItemStatus } from '../api/mealPlans'
@@ -8,6 +9,7 @@ import MealPlanResult from '../components/MealPlanResult.vue'
 
 defineOptions({ name: 'MealPlan' })
 
+const route = useRoute()
 const mealPlansStore = useMealPlansStore()
 const { history: historyPlans, loading: historyLoading } = storeToRefs(mealPlansStore)
 
@@ -52,6 +54,12 @@ const mealTypeOptions: { value: MealType; label: string }[] = [
 
 const dietOptions = ['', '家常菜', '清淡', '低卡', '高蛋白', '素食']
 const applianceOptions = ['炒锅', '电饭煲', '蒸锅', '烤箱', '空气炸锅', '微波炉', '压力锅']
+
+const focusRecipeId = computed(() => {
+  const raw = route.query.recipeId
+  const id = typeof raw === 'string' ? Number(raw) : NaN
+  return Number.isFinite(id) && id > 0 ? id : null
+})
 
 // --- Methods ---
 async function handleGenerate() {
@@ -157,6 +165,9 @@ onMounted(() => { void loadHistory() })
         <p class="overline">AI MEAL PLANNER</p>
         <h1>AI 备餐计划</h1>
         <p class="page-desc">告诉 AI 你的需求和限制，生成一份专属备餐计划。</p>
+        <p v-if="focusRecipeId" class="plan-focus-hint">
+          已从菜谱详情带入关注菜谱 #{{ focusRecipeId }}。生成计划时 AI 仍会结合库存综合安排，可在结果中查看是否被选入。
+        </p>
       </div>
 
       <!-- Config Form -->

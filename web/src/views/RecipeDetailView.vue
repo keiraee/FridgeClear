@@ -126,7 +126,11 @@ function goBack() {
 }
 
 function goToPlan() {
-  router.push('/meal-plan')
+  if (recipe.value) {
+    router.push({ path: '/meal-plan', query: { recipeId: String(recipe.value.id) } })
+  } else {
+    router.push('/meal-plan')
+  }
 }
 
 onMounted(() => loadDetail())
@@ -466,6 +470,41 @@ watch(recipeId, () => loadDetail())
 
 @media (max-width: 768px) {
   .detail-hero {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+
+  .detail-cover {
+    border-radius: var(--radius-md);
+  }
+
+  .detail-cover-fallback {
+    font-size: 56px;
+  }
+
+  .detail-cta {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .detail-steps li {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .step-image {
+    max-width: 100%;
+  }
+
+  .detail-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .detail-gallery {
     grid-template-columns: 1fr;
   }
 }

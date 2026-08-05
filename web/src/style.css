@@ -986,6 +986,17 @@ input, select, textarea { font: inherit; }
   margin: 0;
 }
 
+.plan-focus-hint {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--sage-light);
+  border: 1px solid var(--sage-border);
+  color: var(--deep-green);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* Config form */
 .config-form {
   background: var(--white);

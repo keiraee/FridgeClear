@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import RecipeCard from '../components/RecipeCard.vue'
 import { CATEGORY_OPTIONS, RECIPES_PAGE_SIZE, useRecipesStore } from '../stores/recipes'
 import type { RecipeSummary } from '../types'
 
 defineOptions({ name: 'Recipes' })
 
+const route = useRoute()
 const router = useRouter()
 const recipesStore = useRecipesStore()
 
@@ -19,6 +20,8 @@ const total = ref(0)
 const loading = ref(false)
 const loadingMore = ref(false)
 const errorMessage = ref('')
+
+const validCategories = new Set(CATEGORY_OPTIONS.map((item) => item.value))
 
 const hasMore = computed(() => recipes.value.length < total.value)
 const listSummary = computed(() => {
@@ -35,8 +38,20 @@ function listQuery(pageNumber = page.value) {
   }
 }
 
+function syncCategoryFromRoute() {
+  const raw = typeof route.query.category === 'string' ? route.query.category : ''
+  activeCategory.value = validCategories.has(raw) ? raw : ''
+}
+
 function selectCategory(category: string) {
   activeCategory.value = category
+  void router.replace({
+    name: 'recipes',
+    query: {
+      ...route.query,
+      category: category || undefined,
+    },
+  })
   void loadFirstPage(true)
 }
 
@@ -94,11 +109,29 @@ function openRecipe(id: number) {
   router.push({ name: 'recipeDetail', params: { id: String(id) } })
 }
 
+function resetFilters() {
+  keyword.value = ''
+  activeKeyword.value = ''
+  selectCategory('')
+}
+
 function toggleFavorite(_id: number) {
   // 收藏功能下一步接入
 }
 
-onMounted(() => loadFirstPage())
+onMounted(() => {
+  syncCategoryFromRoute()
+  void loadFirstPage()
+})
+
+watch(
+  () => route.query.category,
+  () => {
+    const previous = activeCategory.value
+    syncCategoryFromRoute()
+    if (previous !== activeCategory.value) void loadFirstPage(true)
+  },
+)
 </script>
 
 <template>
@@ -116,7 +149,7 @@ onMounted(() => loadFirstPage())
       <button class="cta-primary" type="submit" :disabled="loading">搜索</button>
     </form>
 
-    <div class="recipes-category-row">
+    <div class="recipes-category-row" role="tablist" aria-label="菜谱分类">
       <button
         type="button"
         class="category-chip"
@@ -139,7 +172,12 @@ onMounted(() => loadFirstPage())
 
     <p v-if="loading" class="loading-copy">正在加载菜谱…</p>
     <p v-else-if="errorMessage && !recipes.length" class="error-copy">{{ errorMessage }}</p>
-    <p v-else-if="!recipes.length" class="empty-copy">没有找到匹配的菜谱。</p>
+    <div v-else-if="!recipes.length" class="recipes-empty">
+      <p class="empty-copy">没有找到匹配的菜谱。</p>
+      <button class="secondary-btn" type="button" @click="resetFilters">
+        查看全部菜谱
+      </button>
+    </div>
 
     <template v-else>
       <p v-if="listSummary" class="list-count recipes-list-summary">{{ listSummary }}</p>
@@ -182,6 +220,8 @@ onMounted(() => loadFirstPage())
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .category-chip:hover {
   border-color: var(--sage);
@@ -193,9 +233,43 @@ onMounted(() => loadFirstPage())
   color: var(--deep-green);
   font-weight: 600;
 }
+.recipes-empty {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
 .recipes-load-more { display: flex; justify-content: center; margin: 28px 0 12px; }
 .recipes-load-more .secondary-btn { padding: 12px 28px; font-weight: 600; cursor: pointer; }
 .recipes-load-more .secondary-btn:disabled { opacity: 0.65; cursor: wait; }
 .recipes-inline-error { margin-top: 12px; }
 .recipes-end-copy { margin-top: 20px; text-align: center; }
+
+@media (max-width: 640px) {
+  .recipe-search-form {
+    flex-direction: column;
+  }
+  .recipe-search-form input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .recipe-search-form .cta-primary {
+    width: 100%;
+    justify-content: center;
+  }
+  .recipes-category-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    margin-right: -16px;
+    padding-right: 16px;
+    scrollbar-width: none;
+  }
+  .recipes-category-row::-webkit-scrollbar {
+    display: none;
+  }
+  .category-chip {
+    min-height: 40px;
+  }
+}
 </style>

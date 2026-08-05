@@ -22,6 +22,14 @@ const recipes = ref<RecipeSummary[]>([])
 const loadingRecipes = ref(false)
 const recipeError = ref('')
 const pantryIngredientCount = ref(0)
+const emptyReason = ref<'none' | 'no-pantry' | 'no-match' | ''>('')
+
+const mealTypes = [
+  { key: 'BREAKFAST', label: '☀️ 早餐' },
+  { key: 'STAPLE', label: '🌤️ 主食' },
+  { key: 'MEAT_DISH', label: '🌙 荤菜' },
+  { key: 'DESSERT', label: '🍰 甜点' },
+]
 
 const pantrySummary = computed(() => ({
   totalItems: availableItems.value.length,
@@ -35,6 +43,11 @@ const sectionSubtitle = computed(() => {
     return `已匹配 ${pantryIngredientCount.value} 种库存食材，优先展示高匹配菜谱`
   }
   return '添加库存食材后，可获得更精准的菜谱推荐'
+})
+
+const showEmptyGuide = computed(() => {
+  if (!auth.isAuthenticated || loadingRecipes.value) return false
+  return emptyReason.value === 'no-pantry' || emptyReason.value === 'no-match' || (!recipes.value.length && !!recipeError.value)
 })
 
 function matchToSummary(match: Awaited<ReturnType<typeof getRecommendedRecipes>>['recipes'][number]): RecipeSummary {
@@ -56,19 +69,25 @@ async function loadRecipes() {
   if (!auth.isAuthenticated) return
   loadingRecipes.value = true
   recipeError.value = ''
+  emptyReason.value = ''
   try {
     const result = await getRecommendedRecipes(8)
     pantryIngredientCount.value = result.pantryIngredientCount
     recipes.value = result.recipes.map(matchToSummary)
     if (!recipes.value.length) {
-      recipeError.value = result.pantryIngredientCount
-        ? '暂时没有找到与当前库存匹配的菜谱，试试补充更多食材。'
-        : '先添加一些库存食材，我们就能为你推荐可做的菜。'
+      if (!result.pantryIngredientCount) {
+        emptyReason.value = 'no-pantry'
+        recipeError.value = ''
+      } else {
+        emptyReason.value = 'no-match'
+        recipeError.value = ''
+      }
     }
   } catch (error) {
     const axiosError = error as { response?: { data?: { message?: string } } }
     recipeError.value = axiosError.response?.data?.message ?? '推荐菜谱加载失败'
     recipes.value = []
+    emptyReason.value = 'none'
   } finally {
     loadingRecipes.value = false
   }
@@ -81,6 +100,17 @@ async function loadPantry() {
 
 function goToMealPlan() {
   router.push('/meal-plan')
+}
+
+function goToPantry() {
+  router.push('/pantry')
+}
+
+function goToRecipes(category?: string) {
+  router.push({
+    name: 'recipes',
+    query: category ? { category } : undefined,
+  })
 }
 
 function handleAddToPlan(_recipeId: number) {
@@ -132,12 +162,40 @@ onMounted(() => {
           <h2>根据库存推荐</h2>
           <p class="section-subtitle">{{ sectionSubtitle }}</p>
         </div>
-        <button class="view-all" type="button" @click="router.push('/recipes')">查看全部菜谱 →</button>
+        <button class="view-all" type="button" @click="goToRecipes()">查看全部菜谱 →</button>
       </div>
 
       <p v-if="loadingRecipes" class="loading-copy">正在根据库存匹配菜谱…</p>
-      <p v-else-if="recipeError" class="error-copy">{{ recipeError }}</p>
       <p v-else-if="!auth.isAuthenticated" class="empty-copy">登录后即可查看个性化推荐</p>
+      <p v-else-if="recipeError && !showEmptyGuide" class="error-copy">{{ recipeError }}</p>
+
+      <div v-else-if="showEmptyGuide" class="recommend-empty">
+        <template v-if="emptyReason === 'no-pantry'">
+          <h3>冰箱还是空的</h3>
+          <p>先添加几样食材，我们就能根据库存推荐可做的菜。</p>
+          <div class="recommend-empty-actions">
+            <button class="cta-primary" type="button" @click="goToPantry">去添加库存</button>
+            <button class="secondary-btn" type="button" @click="goToRecipes()">先浏览全部菜谱</button>
+          </div>
+        </template>
+        <template v-else-if="emptyReason === 'no-match'">
+          <h3>暂时没有高匹配菜谱</h3>
+          <p>可以再补充一些常用食材，或直接浏览菜谱库找灵感。</p>
+          <div class="recommend-empty-actions">
+            <button class="cta-primary" type="button" @click="goToPantry">补充库存</button>
+            <button class="secondary-btn" type="button" @click="goToRecipes()">浏览全部菜谱</button>
+          </div>
+        </template>
+        <template v-else>
+          <h3>推荐暂时不可用</h3>
+          <p>{{ recipeError || '请稍后重试，或先浏览全部菜谱。' }}</p>
+          <div class="recommend-empty-actions">
+            <button class="cta-primary" type="button" @click="loadRecipes">重试</button>
+            <button class="secondary-btn" type="button" @click="goToRecipes()">浏览全部菜谱</button>
+          </div>
+        </template>
+      </div>
+
       <div v-else class="recipe-grid">
         <RecipeCard
           v-for="recipe in recipes"
@@ -154,13 +212,17 @@ onMounted(() => {
     <section class="meal-picker">
       <div>
         <p class="overline">PICK YOUR MEAL</p>
-        <h2>按一餐开始探索</h2>
+        <h2>按分类开始探索</h2>
       </div>
       <div class="meal-pills">
-        <button type="button" @click="router.push('/recipes')">☀️ 早餐</button>
-        <button type="button" @click="router.push('/recipes')">🌤️ 午餐</button>
-        <button type="button" @click="router.push('/recipes')">🌙 晚餐</button>
-        <button type="button" @click="router.push('/recipes')">🍰 甜点</button>
+        <button
+          v-for="mt in mealTypes"
+          :key="mt.key"
+          type="button"
+          @click="goToRecipes(mt.key)"
+        >
+          {{ mt.label }}
+        </button>
       </div>
     </section>
 
@@ -186,5 +248,48 @@ onMounted(() => {
   color: var(--gray-text);
   font-size: 14px;
   line-height: 1.5;
+}
+
+.recommend-empty {
+  padding: 28px 24px;
+  border: 1px solid var(--sage-border);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+
+.recommend-empty h3 {
+  margin: 0 0 8px;
+  color: var(--deep-green);
+  font-size: 18px;
+}
+
+.recommend-empty p {
+  margin: 0 0 16px;
+  color: var(--gray-text);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 420px;
+}
+
+.recommend-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .recommend-empty {
+    padding: 20px 16px;
+  }
+
+  .recommend-empty-actions {
+    flex-direction: column;
+  }
+
+  .recommend-empty-actions .cta-primary,
+  .recommend-empty-actions .secondary-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>
