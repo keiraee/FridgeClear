@@ -40,7 +40,7 @@ public final class MealPlanDtos {
     public record ItemResponse(Long id, LocalDate planDate, MealPlanEnums.MealType mealType,
                                RecipeResponse recipe, BigDecimal servings, List<String> usedIngredients,
                                List<String> missingIngredients, String reason, MealPlanEnums.ItemStatus status) {}
-    public record RecipeResponse(Long id, String name) {}
+    public record RecipeResponse(Long id, String name, String coverImageUrl) {}
     public record ShoppingResponse(Long id, String name, BigDecimal quantity, String unit, String reason,
                                    MealPlanEnums.ShoppingStatus status) {}
 }

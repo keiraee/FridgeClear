@@ -117,7 +117,7 @@ export interface MealPlanItem {
   id: number
   planDate: string
   mealType: MealType
-  recipe: { id: number; name: string; cookingMinutes?: number }
+  recipe: { id: number; name: string; cookingMinutes?: number; coverImageUrl?: string | null }
   servings: number
   usedIngredients: string[]
   missingIngredients: string[]

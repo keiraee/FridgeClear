@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { MealPlan } from '../types'
+import { useRouter } from 'vue-router'
+import type { MealPlan, MealPlanItem } from '../types'
 
 const props = defineProps<{
   plan: MealPlan
@@ -10,6 +11,8 @@ const emit = defineEmits<{
   (e: 'updateItemStatus', itemId: number, status: string): void
   (e: 'toggleShoppingItem', itemId: number): void
 }>()
+
+const router = useRouter()
 
 function mealTypeLabel(type: string): string {
   const map: Record<string, string> = {
@@ -36,6 +39,14 @@ const groupedItems = computed(() => {
   })
   return groups
 })
+
+function recipeCoverUrl(item: MealPlanItem) {
+  return item.recipe.coverImageUrl ?? null
+}
+
+function openRecipe(recipeId: number) {
+  router.push({ name: 'recipeDetail', params: { id: String(recipeId) } })
+}
 </script>
 
 <template>
@@ -64,9 +75,24 @@ const groupedItems = computed(() => {
 
         <div v-for="item in items" :key="item.id" class="plan-item">
           <div class="plan-item-header">
-            <span class="meal-type-badge">{{ mealTypeLabel(item.mealType) }}</span>
-            <strong class="plan-recipe-name">{{ item.recipe.name }}</strong>
-            <span v-if="item.recipe.cookingMinutes" class="cook-time">{{ item.recipe.cookingMinutes }} 分钟</span>
+            <button
+              type="button"
+              class="plan-recipe-thumb"
+              :aria-label="`查看菜谱：${item.recipe.name}`"
+              @click="openRecipe(item.recipe.id)"
+            >
+              <img v-if="recipeCoverUrl(item)" :src="recipeCoverUrl(item)!" :alt="item.recipe.name" loading="lazy" />
+              <span v-else class="plan-recipe-thumb-fallback" aria-hidden="true">🍳</span>
+            </button>
+            <div class="plan-item-title">
+              <div class="plan-item-title-row">
+                <span class="meal-type-badge">{{ mealTypeLabel(item.mealType) }}</span>
+                <button type="button" class="plan-recipe-name" @click="openRecipe(item.recipe.id)">
+                  {{ item.recipe.name }}
+                </button>
+                <span v-if="item.recipe.cookingMinutes" class="cook-time">{{ item.recipe.cookingMinutes }} 分钟</span>
+              </div>
+            </div>
           </div>
 
           <p class="plan-reason">💡 {{ item.reason }}</p>
@@ -133,3 +159,66 @@ const groupedItems = computed(() => {
     <p>配置你的偏好，让 AI 帮你生成一份专属计划。</p>
   </div>
 </template>
+
+<style scoped>
+.plan-item-header {
+  align-items: flex-start;
+}
+
+.plan-recipe-thumb {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--sage-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: linear-gradient(145deg, var(--sage-light), #f6efe8);
+  cursor: pointer;
+}
+
+.plan-recipe-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.plan-recipe-thumb-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 28px;
+}
+
+.plan-item-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-item-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.plan-recipe-name {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--deep-green);
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.plan-recipe-name:hover {
+  color: var(--light-orange);
+}
+</style>

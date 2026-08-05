@@ -18,6 +18,7 @@ import com.sccothe.fridgeclear.recipe.domain.RecipeIngredient;
 import com.sccothe.fridgeclear.recipe.repository.RecipeRepository;
 import com.sccothe.fridgeclear.recipe.repository.RecipeIngredientQueryRepository;
 import com.sccothe.fridgeclear.recipe.repository.IngredientRepository;
+import com.sccothe.fridgeclear.recipe.repository.RecipeMediaQueryRepository;
 import com.sccothe.fridgeclear.recipe.service.IngredientNameNormalizer;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class MealPlanService {
     private final RecipeRepository recipeRepository;
     private final RecipeIngredientQueryRepository recipeIngredientRepository;
     private final IngredientRepository ingredientRepository;
+    private final RecipeMediaQueryRepository mediaRepository;
     private final AiChatGateway aiGateway;
     private final AiPlanRunRepository aiRunRepository;
     private final MealPlanRepository mealPlanRepository;
@@ -46,6 +48,7 @@ public class MealPlanService {
     public MealPlanService(PantryItemRepository pantryRepository, RecipeRepository recipeRepository,
                            RecipeIngredientQueryRepository recipeIngredientRepository,
                            IngredientRepository ingredientRepository,
+                           RecipeMediaQueryRepository mediaRepository,
                            AiChatGateway aiGateway, AiPlanRunRepository aiRunRepository,
                            MealPlanRepository mealPlanRepository, MealPlanItemRepository itemRepository,
                            ShoppingListItemRepository shoppingRepository, ObjectMapper objectMapper) {
@@ -53,6 +56,7 @@ public class MealPlanService {
         this.recipeRepository = recipeRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
         this.ingredientRepository = ingredientRepository;
+        this.mediaRepository = mediaRepository;
         this.aiGateway = aiGateway;
         this.aiRunRepository = aiRunRepository;
         this.mealPlanRepository = mealPlanRepository;
@@ -133,9 +137,14 @@ public class MealPlanService {
     public MealPlanDtos.DetailResponse detail(Long id) {
         MealPlan plan = ownedPlan(id);
         List<MealPlanItem> items = itemRepository.findByMealPlanIdOrderByPlanDateAscSortOrderAsc(id);
-        Map<Long, String> recipeNames = recipeRepository.findAllById(items.stream().map(MealPlanItem::getRecipeId).toList()).stream()
+        List<Long> recipeIds = items.stream().map(MealPlanItem::getRecipeId).distinct().toList();
+        Map<Long, String> recipeNames = recipeRepository.findAllById(recipeIds).stream()
                 .collect(Collectors.toMap(Recipe::getId, Recipe::getName, (first, ignored) -> first));
-        List<MealPlanDtos.ItemResponse> itemResponses = items.stream().map(item -> toItemResponse(item, recipeNames.getOrDefault(item.getRecipeId(), "未知菜谱"))).toList();
+        Map<Long, String> coverImageUrls = loadCoverImageUrls(recipeIds);
+        List<MealPlanDtos.ItemResponse> itemResponses = items.stream()
+                .map(item -> toItemResponse(item, recipeNames.getOrDefault(item.getRecipeId(), "未知菜谱"),
+                        coverImageUrls.get(item.getRecipeId())))
+                .toList();
         return new MealPlanDtos.DetailResponse(plan.getId(), plan.getTitle(), plan.getStartDate(), plan.getEndDate(), plan.getStatus(),
                 itemResponses, shoppingResponses(id));
     }
@@ -148,7 +157,8 @@ public class MealPlanService {
         item.setStatus(request.status());
         itemRepository.save(item);
         String recipeName = recipeRepository.findById(item.getRecipeId()).map(Recipe::getName).orElse("未知菜谱");
-        return toItemResponse(item, recipeName);
+        String coverImageUrl = loadCoverImageUrls(List.of(item.getRecipeId())).get(item.getRecipeId());
+        return toItemResponse(item, recipeName, coverImageUrl);
     }
 
     @Transactional(readOnly = true)
@@ -176,11 +186,21 @@ public class MealPlanService {
         return shoppingRepository.findByMealPlanIdOrderByIdAsc(planId).stream().map(this::toShoppingResponse).toList();
     }
 
-    private MealPlanDtos.ItemResponse toItemResponse(MealPlanItem item, String recipeName) {
+    private MealPlanDtos.ItemResponse toItemResponse(MealPlanItem item, String recipeName, String coverImageUrl) {
         return new MealPlanDtos.ItemResponse(item.getId(), item.getPlanDate(), item.getMealType(),
-                new MealPlanDtos.RecipeResponse(item.getRecipeId(), recipeName), item.getServings(),
+                new MealPlanDtos.RecipeResponse(item.getRecipeId(), recipeName, coverImageUrl), item.getServings(),
                 readStringList(item.getUsedIngredientsJson()), readStringList(item.getMissingIngredientsJson()),
                 item.getReason(), item.getStatus());
+    }
+
+    private Map<Long, String> loadCoverImageUrls(Collection<Long> recipeIds) {
+        if (recipeIds.isEmpty()) return Map.of();
+        Map<Long, String> coverImageUrls = new HashMap<>();
+        for (var media : mediaRepository.findByRecipeIdInOrderByRecipeIdAscSortOrderAsc(recipeIds)) {
+            coverImageUrls.putIfAbsent(media.getRecipeId(),
+                    "/api/v1/recipes/" + media.getRecipeId() + "/media/" + media.getSortOrder());
+        }
+        return coverImageUrls;
     }
 
     private MealPlanDtos.ShoppingResponse toShoppingResponse(ShoppingListItem item) {
@@ -233,11 +253,20 @@ public class MealPlanService {
                 entity.setSortOrder(sort++);
                 entity = itemRepository.save(entity);
                 itemResponses.add(new MealPlanDtos.ItemResponse(entity.getId(), entity.getPlanDate(), entity.getMealType(),
-                        new MealPlanDtos.RecipeResponse(recipe.getId(), recipe.getName()), entity.getServings(),
+                        new MealPlanDtos.RecipeResponse(recipe.getId(), recipe.getName(), null), entity.getServings(),
                         match.usedNames(), match.missingNames(), entity.getReason(), entity.getStatus()));
             }
         }
         if (itemResponses.isEmpty()) throw new IllegalStateException("AI 返回的菜谱无法匹配本地菜谱");
+
+        Map<Long, String> coverImageUrls = loadCoverImageUrls(
+                itemResponses.stream().map(item -> item.recipe().id()).distinct().toList());
+        itemResponses = itemResponses.stream()
+                .map(item -> new MealPlanDtos.ItemResponse(item.id(), item.planDate(), item.mealType(),
+                        new MealPlanDtos.RecipeResponse(item.recipe().id(), item.recipe().name(),
+                                coverImageUrls.get(item.recipe().id())),
+                        item.servings(), item.usedIngredients(), item.missingIngredients(), item.reason(), item.status()))
+                .toList();
 
         Map<Long, String> canonicalNames = ingredientRepository.findAll().stream()
                 .collect(Collectors.toMap(com.sccothe.fridgeclear.recipe.domain.Ingredient::getId,
