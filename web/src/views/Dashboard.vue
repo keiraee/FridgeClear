@@ -4,35 +4,24 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import PantryStatus from '../components/PantryStatus.vue'
 import RecipeCard from '../components/RecipeCard.vue'
+import { getRecommendedRecipes } from '../api/recommendations'
 import { useAuthStore } from '../stores/auth'
 import { usePantryStore } from '../stores/pantry'
-import { useRecipesStore } from '../stores/recipes'
+import { CATEGORY_LABELS } from '../stores/recipes'
+import type { RecipeSummary } from '../types'
 
 defineOptions({ name: 'Dashboard' })
 
 const router = useRouter()
 const auth = useAuthStore()
 const pantryStore = usePantryStore()
-const recipesStore = useRecipesStore()
 
 const { availableItems, expiringCount, loading: loadingPantry, error: pantryError } = storeToRefs(pantryStore)
 
-const activeFilter = ref('热门')
-const activeMealType = ref<string | null>(null)
-const recipes = ref<Awaited<ReturnType<typeof recipesStore.fetchPreview>>['items']>([])
+const recipes = ref<RecipeSummary[]>([])
 const loadingRecipes = ref(false)
 const recipeError = ref('')
-
-const filters = ['热门', '快手菜', '一锅料理', '健康轻食', '早餐', '午餐', '晚餐', '汤羹']
-
-const mealTypes = [
-  { key: 'breakfast', label: '☀️ 早餐' },
-  { key: 'lunch', label: '🌤️ 午餐' },
-  { key: 'dinner', label: '🌙 晚餐' },
-  { key: 'dessert', label: '🍰 甜点' },
-]
-
-const filteredRecipes = computed(() => recipes.value)
+const pantryIngredientCount = ref(0)
 
 const pantrySummary = computed(() => ({
   totalItems: availableItems.value.length,
@@ -40,21 +29,46 @@ const pantrySummary = computed(() => ({
   recipesAvailable: recipes.value.length,
 }))
 
+const sectionSubtitle = computed(() => {
+  if (!auth.isAuthenticated) return '登录后根据你的冰箱库存推荐菜谱'
+  if (pantryIngredientCount.value > 0) {
+    return `已匹配 ${pantryIngredientCount.value} 种库存食材，优先展示高匹配菜谱`
+  }
+  return '添加库存食材后，可获得更精准的菜谱推荐'
+})
+
+function matchToSummary(match: Awaited<ReturnType<typeof getRecommendedRecipes>>['recipes'][number]): RecipeSummary {
+  return {
+    id: match.recipeId,
+    name: match.recipeName,
+    category: CATEGORY_LABELS[match.category] ?? match.category,
+    description: match.description,
+    difficultyText: match.difficultyText,
+    difficultyLevel: match.difficultyLevel,
+    calories: match.calories,
+    coverImageUrl: match.coverImageUrl,
+    ingredientCount: match.ingredientCount,
+    matchPercent: match.matchRate,
+  }
+}
+
 async function loadRecipes() {
   if (!auth.isAuthenticated) return
-  const previewQuery = { page: 0, size: 8 }
-  const cached = recipesStore.getCachedPage(previewQuery)
-  if (cached) {
-    recipes.value = cached.items
-    recipeError.value = recipesStore.getError(previewQuery)
-    return
-  }
   loadingRecipes.value = true
   recipeError.value = ''
   try {
-    const result = await recipesStore.fetchPreview(8)
-    recipes.value = result.items
-    recipeError.value = recipesStore.getError(previewQuery)
+    const result = await getRecommendedRecipes(8)
+    pantryIngredientCount.value = result.pantryIngredientCount
+    recipes.value = result.recipes.map(matchToSummary)
+    if (!recipes.value.length) {
+      recipeError.value = result.pantryIngredientCount
+        ? '暂时没有找到与当前库存匹配的菜谱，试试补充更多食材。'
+        : '先添加一些库存食材，我们就能为你推荐可做的菜。'
+    }
+  } catch (error) {
+    const axiosError = error as { response?: { data?: { message?: string } } }
+    recipeError.value = axiosError.response?.data?.message ?? '推荐菜谱加载失败'
+    recipes.value = []
   } finally {
     loadingRecipes.value = false
   }
@@ -110,36 +124,23 @@ onMounted(() => {
       <p v-if="pantryError" class="hero-data-error">{{ pantryError }}</p>
     </section>
 
-    <!-- ============ TRENDING RECIPES ============ -->
+    <!-- ============ RECOMMENDED RECIPES ============ -->
     <section class="content-section">
       <div class="section-head">
         <div>
-          <p class="overline">WEEKLY INSPIRATION</p>
-          <h2>今天想吃什么？</h2>
+          <p class="overline">PANTRY MATCH</p>
+          <h2>根据库存推荐</h2>
+          <p class="section-subtitle">{{ sectionSubtitle }}</p>
         </div>
         <button class="view-all" type="button" @click="router.push('/recipes')">查看全部菜谱 →</button>
       </div>
 
-      <!-- Filter pills -->
-      <div class="filter-row">
-        <button
-          v-for="filter in filters"
-          :key="filter"
-          type="button"
-          :class="{ selected: activeFilter === filter }"
-          @click="activeFilter = filter"
-        >
-          {{ filter }}
-        </button>
-      </div>
-
-      <!-- Recipe grid -->
-      <p v-if="loadingRecipes" class="loading-copy">正在加载真实菜谱…</p>
+      <p v-if="loadingRecipes" class="loading-copy">正在根据库存匹配菜谱…</p>
       <p v-else-if="recipeError" class="error-copy">{{ recipeError }}</p>
-      <p v-else-if="!filteredRecipes.length" class="empty-copy">登录后即可查看菜谱内容</p>
+      <p v-else-if="!auth.isAuthenticated" class="empty-copy">登录后即可查看个性化推荐</p>
       <div v-else class="recipe-grid">
         <RecipeCard
-          v-for="recipe in filteredRecipes"
+          v-for="recipe in recipes"
           :key="recipe.id"
           :recipe="recipe"
           @add-to-plan="handleAddToPlan"
@@ -156,15 +157,10 @@ onMounted(() => {
         <h2>按一餐开始探索</h2>
       </div>
       <div class="meal-pills">
-        <button
-          v-for="mt in mealTypes"
-          :key="mt.key"
-          type="button"
-          :class="{ active: activeMealType === mt.key }"
-          @click="activeMealType = mt.key"
-        >
-          {{ mt.label }}
-        </button>
+        <button type="button" @click="router.push('/recipes')">☀️ 早餐</button>
+        <button type="button" @click="router.push('/recipes')">🌤️ 午餐</button>
+        <button type="button" @click="router.push('/recipes')">🌙 晚餐</button>
+        <button type="button" @click="router.push('/recipes')">🍰 甜点</button>
       </div>
     </section>
 
@@ -183,3 +179,12 @@ onMounted(() => {
     </section>
   </main>
 </template>
+
+<style scoped>
+.section-subtitle {
+  margin: 8px 0 0;
+  color: var(--gray-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+</style>

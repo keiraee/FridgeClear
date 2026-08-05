@@ -12,6 +12,7 @@ import com.sccothe.fridgeclear.recipe.domain.RecipeIngredient;
 import com.sccothe.fridgeclear.recipe.repository.IngredientAliasRepository;
 import com.sccothe.fridgeclear.recipe.repository.IngredientRepository;
 import com.sccothe.fridgeclear.recipe.repository.RecipeIngredientQueryRepository;
+import com.sccothe.fridgeclear.recipe.repository.RecipeMediaQueryRepository;
 import com.sccothe.fridgeclear.recipe.repository.RecipeRepository;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -28,17 +29,20 @@ public class RecipeRecommendationService {
     private final RecipeIngredientQueryRepository recipeIngredientRepository;
     private final IngredientRepository ingredientRepository;
     private final IngredientAliasRepository aliasRepository;
+    private final RecipeMediaQueryRepository mediaRepository;
 
     public RecipeRecommendationService(PantryItemRepository pantryItemRepository,
                                        RecipeRepository recipeRepository,
                                        RecipeIngredientQueryRepository recipeIngredientRepository,
                                        IngredientRepository ingredientRepository,
-                                       IngredientAliasRepository aliasRepository) {
+                                       IngredientAliasRepository aliasRepository,
+                                       RecipeMediaQueryRepository mediaRepository) {
         this.pantryItemRepository = pantryItemRepository;
         this.recipeRepository = recipeRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
         this.ingredientRepository = ingredientRepository;
         this.aliasRepository = aliasRepository;
+        this.mediaRepository = mediaRepository;
     }
 
     public RecommendationDtos.RecipeMatchResponse recommend(int limit) {
@@ -73,11 +77,17 @@ public class RecipeRecommendationService {
         List<Long> recipeIds = recipes.stream().map(Recipe::getId).toList();
         Map<Long, List<RecipeIngredient>> ingredientsByRecipe = recipeIngredientRepository.findByRecipeIdIn(recipeIds)
                 .stream().collect(Collectors.groupingBy(RecipeIngredient::getRecipeId));
+        Map<Long, String> coverImageUrls = loadCoverImageUrls(recipeIds);
+        Map<Long, Integer> ingredientCounts = ingredientsByRecipe.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size()));
 
         return new RecommendationDtos.RecipeMatchResponse(
                 pantryIngredientIds.size(),
                 recipes.stream()
-                        .map(recipe -> match(recipe, ingredientsByRecipe.getOrDefault(recipe.getId(), List.of()), pantryIngredientIds, pantryIngredientNames))
+                        .map(recipe -> match(recipe, ingredientsByRecipe.getOrDefault(recipe.getId(), List.of()),
+                                pantryIngredientIds, pantryIngredientNames,
+                                coverImageUrls.get(recipe.getId()),
+                                ingredientCounts.getOrDefault(recipe.getId(), 0)))
                         .filter(Objects::nonNull)
                         .sorted(Comparator.comparingInt(RecommendationDtos.RecipeMatch::matchRate).reversed()
                                 .thenComparingInt(RecommendationDtos.RecipeMatch::missingIngredientCount)
@@ -89,7 +99,9 @@ public class RecipeRecommendationService {
     private RecommendationDtos.RecipeMatch match(Recipe recipe,
                                                   List<RecipeIngredient> allIngredients,
                                                   Set<Long> pantryIngredientIds,
-                                                  Set<String> pantryIngredientNames) {
+                                                  Set<String> pantryIngredientNames,
+                                                  String coverImageUrl,
+                                                  int ingredientCount) {
         Map<String, RecipeIngredient> uniqueRequired = new LinkedHashMap<>();
         allIngredients.stream()
                 .filter(item -> item.getSourceSection() == RecipeEnums.SourceSection.REQUIRED)
@@ -120,8 +132,20 @@ public class RecipeRecommendationService {
         int matchedCount = matched.size();
         int rate = matchedCount * 100 / requiredCount;
         return new RecommendationDtos.RecipeMatch(
-                recipe.getId(), recipe.getName(), recipe.getCategory(), matchedCount, requiredCount,
+                recipe.getId(), recipe.getName(), recipe.getCategory(), recipe.getDescription(),
+                recipe.getDifficultyText(), recipe.getDifficultyLevel(), recipe.getCalories(),
+                coverImageUrl, ingredientCount, matchedCount, requiredCount,
                 missing.size(), rate, matched.stream().distinct().toList(), missing.stream().distinct().toList());
+    }
+
+    private Map<Long, String> loadCoverImageUrls(Collection<Long> recipeIds) {
+        if (recipeIds.isEmpty()) return Map.of();
+        Map<Long, String> coverImageUrls = new HashMap<>();
+        for (var media : mediaRepository.findByRecipeIdInOrderByRecipeIdAscSortOrderAsc(recipeIds)) {
+            coverImageUrls.putIfAbsent(media.getRecipeId(),
+                    "/api/v1/recipes/" + media.getRecipeId() + "/media/" + media.getSortOrder());
+        }
+        return coverImageUrls;
     }
 
     private String ingredientKey(RecipeIngredient item) {

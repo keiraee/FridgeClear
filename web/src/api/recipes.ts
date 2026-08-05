@@ -1,7 +1,7 @@
 import http from './http'
 import type { ApiResponse, PageResponse, RecipeDetail, RecipeSummary } from '../types'
 
-export async function getRecipes(params: { keyword?: string; page?: number; size?: number } = {}) {
+export async function getRecipes(params: { keyword?: string; category?: string; page?: number; size?: number } = {}) {
   const response = await http.get<ApiResponse<PageResponse<RecipeSummary>>>('/recipes', {
     params,
     timeout: 120000,

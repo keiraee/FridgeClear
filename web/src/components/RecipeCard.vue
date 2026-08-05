@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { RecipeSummary } from '../types'
+import {
+  difficultyStars,
+  formatCalories,
+  resolveCookingMinutes,
+  truncateText,
+} from '../utils/recipe'
 
 const props = defineProps<{
   recipe: RecipeSummary
@@ -36,6 +42,11 @@ const foodIcon = computed(() => {
   const icons = ['🍝', '🍳', '🍤', '🥣']
   return icons[props.recipe.id % icons.length]
 })
+
+const stars = computed(() => difficultyStars(props.recipe.difficultyLevel))
+const caloriesLabel = computed(() => formatCalories(props.recipe.calories))
+const cookingMinutes = computed(() => resolveCookingMinutes(props.recipe))
+const descriptionSnippet = computed(() => truncateText(props.recipe.description))
 </script>
 
 <template>
@@ -67,14 +78,22 @@ const foodIcon = computed(() => {
 
     <div class="recipe-body">
       <h3 class="recipe-title-link" role="button" tabindex="0" @click="emit('open', recipe.id)" @keyup.enter="emit('open', recipe.id)">{{ recipe.name }}</h3>
+
+      <div v-if="stars || caloriesLabel || cookingMinutes" class="recipe-stats">
+        <span v-if="stars" class="recipe-stars" :title="recipe.difficultyText ?? '难度'">{{ stars }}</span>
+        <span v-if="caloriesLabel" class="recipe-stat">{{ caloriesLabel }}</span>
+        <span v-if="cookingMinutes" class="recipe-stat">约 {{ cookingMinutes }} 分钟</span>
+      </div>
+
       <p class="meta">
         {{ recipe.category }}
-        <template v-if="recipe.cookingMinutes"> · {{ recipe.cookingMinutes }} 分钟</template>
-        <template v-if="recipe.difficultyText"> · {{ recipe.difficultyText }}</template>
+        <template v-if="recipe.ingredientCount"> · {{ recipe.ingredientCount }} 种食材</template>
         <template v-if="recipe.tag">
           <span class="recipe-tag">{{ recipe.tag }}</span>
         </template>
       </p>
+
+      <p v-if="descriptionSnippet" class="recipe-desc">{{ descriptionSnippet }}</p>
 
       <button class="card-action" type="button" @click.stop="emit('addToPlan', recipe.id)">
         ＋ 加入备餐计划
@@ -94,5 +113,35 @@ const foodIcon = computed(() => {
 }
 .recipe-title-link:hover {
   color: var(--light-orange);
+}
+.recipe-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 0 0 6px;
+}
+.recipe-stars {
+  color: var(--light-orange);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.recipe-stat {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-text);
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--cream);
+}
+.recipe-desc {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--gray-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

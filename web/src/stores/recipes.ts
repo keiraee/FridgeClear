@@ -21,8 +21,13 @@ export const CATEGORY_LABELS: Record<string, string> = {
   UNKNOWN: '其他',
 }
 
+export const CATEGORY_OPTIONS = Object.entries(CATEGORY_LABELS)
+  .filter(([key]) => key !== 'UNKNOWN' && key !== 'CONDIMENT')
+  .map(([value, label]) => ({ value, label }))
+
 export interface RecipeQuery {
   keyword?: string
+  category?: string
   page?: number
   size?: number
 }
@@ -43,6 +48,7 @@ interface CacheEntry {
 function queryKey(params: RecipeQuery) {
   return JSON.stringify({
     keyword: params.keyword?.trim() ?? '',
+    category: params.category ?? '',
     page: params.page ?? 0,
     size: params.size ?? RECIPES_PAGE_SIZE,
   })

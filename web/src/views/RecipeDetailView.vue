@@ -3,6 +3,12 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRecipesStore } from '../stores/recipes'
 import type { RecipeDetail, RecipeIngredient } from '../types'
+import {
+  difficultyStars,
+  formatCalories,
+  recipeMediaUrl,
+  resolveCookingMinutes,
+} from '../utils/recipe'
 
 defineOptions({ name: 'RecipeDetail' })
 
@@ -21,17 +27,32 @@ const coverUrl = computed(() => {
   if (detail.coverImageUrl) return detail.coverImageUrl
   const first = detail.media?.[0]
   if (!first) return null
-  return `/api/v1/recipes/${detail.id}/media/${first.sortOrder}`
+  return recipeMediaUrl(detail.id, first.sortOrder)
 })
 
-const metaLine = computed(() => {
+const stars = computed(() => difficultyStars(recipe.value?.difficultyLevel))
+const caloriesLabel = computed(() => formatCalories(recipe.value?.calories ?? null))
+const cookingMinutes = computed(() => (recipe.value ? resolveCookingMinutes(recipe.value) : null))
+
+const stepImages = computed(() => {
   const detail = recipe.value
-  if (!detail) return ''
-  const parts: string[] = []
-  if (detail.category) parts.push(detail.category)
-  if (detail.difficultyText) parts.push(detail.difficultyText)
-  if (detail.calories != null) parts.push(`${detail.calories} kcal`)
-  return parts.join(' · ')
+  if (!detail?.media?.length || !detail.steps?.length) return new Map<number, string>()
+  const images = new Map<number, string>()
+  const extraMedia = detail.media.length > 1 ? detail.media.slice(1) : detail.media
+  extraMedia.forEach((media, index) => {
+    const stepNo = detail.steps[index]?.stepNo ?? index + 1
+    images.set(stepNo, recipeMediaUrl(detail.id, media.sortOrder))
+  })
+  return images
+})
+
+const galleryImages = computed(() => {
+  const detail = recipe.value
+  if (!detail?.media?.length) return []
+  return detail.media.map((media) => ({
+    url: recipeMediaUrl(detail.id, media.sortOrder),
+    alt: media.altText || detail.name,
+  }))
 })
 
 const ROLE_LABELS: Record<RecipeIngredient['role'], string> = {
@@ -128,7 +149,13 @@ watch(recipeId, () => loadDetail())
         <div class="detail-intro">
           <p class="overline">RECIPE DETAIL</p>
           <h1>{{ recipe.name }}</h1>
-          <p v-if="metaLine" class="detail-meta">{{ metaLine }}</p>
+          <div class="detail-stat-row">
+            <span v-if="recipe.category" class="detail-stat">{{ recipe.category }}</span>
+            <span v-if="stars" class="detail-stat detail-stars" :title="recipe.difficultyText ?? '难度'">{{ stars }}</span>
+            <span v-if="caloriesLabel" class="detail-stat">{{ caloriesLabel }}</span>
+            <span v-if="cookingMinutes" class="detail-stat">约 {{ cookingMinutes }} 分钟</span>
+            <span v-if="recipe.ingredients?.length" class="detail-stat">{{ recipe.ingredients.length }} 种食材</span>
+          </div>
           <p v-if="recipe.description" class="detail-desc">{{ recipe.description }}</p>
           <button class="cta-primary detail-cta" type="button" @click="goToPlan">
             ＋ 加入备餐计划
@@ -157,9 +184,27 @@ watch(recipeId, () => loadDetail())
         <ol class="detail-steps">
           <li v-for="step in recipe.steps" :key="step.stepNo">
             <span class="step-no">{{ step.stepNo }}</span>
-            <p>{{ step.content }}</p>
+            <div class="step-content">
+              <p>{{ step.content }}</p>
+              <img
+                v-if="stepImages.get(step.stepNo)"
+                class="step-image"
+                :src="stepImages.get(step.stepNo)"
+                :alt="`${recipe.name} 步骤 ${step.stepNo}`"
+                loading="lazy"
+              />
+            </div>
           </li>
         </ol>
+      </section>
+
+      <section v-if="galleryImages.length > 1" class="detail-section">
+        <h2>步骤图解</h2>
+        <div class="detail-gallery">
+          <figure v-for="(image, index) in galleryImages" :key="`${image.url}-${index}`">
+            <img :src="image.url" :alt="image.alt" loading="lazy" />
+          </figure>
+        </div>
       </section>
 
       <section v-if="sourceLabel" class="detail-section detail-source">
@@ -237,6 +282,28 @@ watch(recipeId, () => loadDetail())
   margin: 0 0 12px;
   color: var(--gray-text);
   font-size: 14px;
+}
+
+.detail-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.detail-stat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-text);
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--cream);
+  border: 1px solid var(--sage-border);
+}
+
+.detail-stars {
+  color: var(--light-orange);
+  letter-spacing: 0.04em;
 }
 
 .detail-desc {
@@ -325,6 +392,40 @@ watch(recipeId, () => loadDetail())
   padding: 14px 16px;
   border: 1px solid var(--sage-border);
   border-radius: var(--radius-md);
+}
+
+.step-content {
+  min-width: 0;
+}
+
+.step-image {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--sage-border);
+}
+
+.detail-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.detail-gallery figure {
+  margin: 0;
+  border: 1px solid var(--sage-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--white);
+}
+
+.detail-gallery img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
 }
 
 .step-no {

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import RecipeCard from '../components/RecipeCard.vue'
-import { RECIPES_PAGE_SIZE, useRecipesStore } from '../stores/recipes'
+import { CATEGORY_OPTIONS, RECIPES_PAGE_SIZE, useRecipesStore } from '../stores/recipes'
 import type { RecipeSummary } from '../types'
 
 defineOptions({ name: 'Recipes' })
@@ -12,6 +12,7 @@ const recipesStore = useRecipesStore()
 
 const keyword = ref('')
 const activeKeyword = ref('')
+const activeCategory = ref('')
 const recipes = ref<RecipeSummary[]>([])
 const page = ref(0)
 const total = ref(0)
@@ -28,9 +29,15 @@ const listSummary = computed(() => {
 function listQuery(pageNumber = page.value) {
   return {
     keyword: activeKeyword.value || undefined,
+    category: activeCategory.value || undefined,
     page: pageNumber,
     size: RECIPES_PAGE_SIZE,
   }
+}
+
+function selectCategory(category: string) {
+  activeCategory.value = category
+  void loadFirstPage(true)
 }
 
 async function loadFirstPage(force = false) {
@@ -109,6 +116,27 @@ onMounted(() => loadFirstPage())
       <button class="cta-primary" type="submit" :disabled="loading">搜索</button>
     </form>
 
+    <div class="recipes-category-row">
+      <button
+        type="button"
+        class="category-chip"
+        :class="{ selected: !activeCategory }"
+        @click="selectCategory('')"
+      >
+        全部分类
+      </button>
+      <button
+        v-for="option in CATEGORY_OPTIONS"
+        :key="option.value"
+        type="button"
+        class="category-chip"
+        :class="{ selected: activeCategory === option.value }"
+        @click="selectCategory(option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+
     <p v-if="loading" class="loading-copy">正在加载菜谱…</p>
     <p v-else-if="errorMessage && !recipes.length" class="error-copy">{{ errorMessage }}</p>
     <p v-else-if="!recipes.length" class="empty-copy">没有找到匹配的菜谱。</p>
@@ -138,6 +166,33 @@ onMounted(() => loadFirstPage())
 
 <style scoped>
 .recipes-list-summary { margin: 0 0 16px; }
+.recipes-category-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+.category-chip {
+  border: 1px solid var(--sage-border);
+  border-radius: 20px;
+  padding: 8px 14px;
+  background: var(--white);
+  color: var(--gray-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.category-chip:hover {
+  border-color: var(--sage);
+  color: var(--sage);
+}
+.category-chip.selected {
+  background: var(--sage-light);
+  border-color: var(--sage);
+  color: var(--deep-green);
+  font-weight: 600;
+}
 .recipes-load-more { display: flex; justify-content: center; margin: 28px 0 12px; }
 .recipes-load-more .secondary-btn { padding: 12px 28px; font-weight: 600; cursor: pointer; }
 .recipes-load-more .secondary-btn:disabled { opacity: 0.65; cursor: wait; }
