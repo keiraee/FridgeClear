@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getRecipes } from '../api/recipes'
-import type { RecipeSummary } from '../types'
+import { getRecipes, getRecipeDetail } from '../api/recipes'
+import type { RecipeDetail, RecipeSummary } from '../types'
 import { isCacheFresh } from '../utils/cache'
 
 export const RECIPES_PAGE_SIZE = 12
@@ -62,10 +62,17 @@ function toPageResult(page: number, size: number, total: number, items: RecipeSu
   }
 }
 
+function labelDetail(recipe: RecipeDetail): RecipeDetail {
+  return { ...recipe, category: CATEGORY_LABELS[recipe.category] ?? recipe.category }
+}
+
 export const useRecipesStore = defineStore('recipes', () => {
   const caches = ref(new Map<string, CacheEntry>())
+  const detailCaches = ref(new Map<number, { recipe: RecipeDetail; fetchedAt: number }>())
   const loadingKeys = ref(new Set<string>())
+  const detailLoadingIds = ref(new Set<number>())
   const errors = ref(new Map<string, string>())
+  const detailErrors = ref(new Map<number, string>())
 
   function getCachedPage(params: RecipeQuery): RecipePageResult | null {
     const entry = caches.value.get(queryKey(params))
@@ -119,16 +126,66 @@ export const useRecipesStore = defineStore('recipes', () => {
     return fetchPage({ page: 0, size }, options)
   }
 
+  function getCachedDetail(id: number): RecipeDetail | null {
+    const entry = detailCaches.value.get(id)
+    if (!entry || !isCacheFresh(entry.fetchedAt, RECIPES_TTL_MS)) return null
+    return entry.recipe
+  }
+
+  function getDetailError(id: number) {
+    return detailErrors.value.get(id) ?? ''
+  }
+
+  async function fetchDetail(id: number, options: { force?: boolean } = {}): Promise<RecipeDetail | null> {
+    const { force = false } = options
+    const cached = detailCaches.value.get(id)
+    if (!force && cached && isCacheFresh(cached.fetchedAt, RECIPES_TTL_MS)) {
+      return cached.recipe
+    }
+
+    if (!cached || force) detailLoadingIds.value.add(id)
+    detailErrors.value.delete(id)
+
+    try {
+      const recipe = labelDetail(await getRecipeDetail(id))
+      detailCaches.value.set(id, { recipe, fetchedAt: Date.now() })
+      return recipe
+    } catch (error) {
+      const axiosError = error as { code?: string; response?: { status?: number; data?: { message?: string } } }
+      const status = axiosError.response?.status
+      let message: string
+      if (status === 404) {
+        message = '菜谱不存在或已下架'
+      } else if (axiosError.code === 'ECONNABORTED') {
+        message = '加载超时，请稍后重试'
+      } else if (status === 401 || status === 403) {
+        message = '登录已失效，请重新登录'
+      } else {
+        message = axiosError.response?.data?.message ?? '菜谱详情加载失败'
+      }
+      detailErrors.value.set(id, message)
+      if (cached) return cached.recipe
+      return null
+    } finally {
+      detailLoadingIds.value.delete(id)
+    }
+  }
+
   function invalidateAll() {
     caches.value.clear()
+    detailCaches.value.clear()
     errors.value.clear()
+    detailErrors.value.clear()
   }
 
   function reset() {
     caches.value.clear()
+    detailCaches.value.clear()
     loadingKeys.value.clear()
+    detailLoadingIds.value.clear()
     errors.value.clear()
+    detailErrors.value.clear()
   }
 
-  return { getCachedPage, getError, fetchPage, fetchPreview, invalidateAll, reset }
+  return { getCachedPage, getCachedDetail, getError, getDetailError, fetchPage, fetchPreview, fetchDetail, invalidateAll, reset }
 })

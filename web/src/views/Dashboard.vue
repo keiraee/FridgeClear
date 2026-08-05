@@ -73,6 +73,10 @@ function handleAddToPlan(_recipeId: number) {
   router.push('/meal-plan')
 }
 
+function openRecipe(id: number) {
+  router.push({ name: 'recipeDetail', params: { id: String(id) } })
+}
+
 function handleToggleFavorite(_recipeId: number) {
   // placeholder
 }
@@ -140,6 +144,7 @@ onMounted(() => {
           :recipe="recipe"
           @add-to-plan="handleAddToPlan"
           @toggle-favorite="handleToggleFavorite"
+          @open="openRecipe"
         />
       </div>
     </section>

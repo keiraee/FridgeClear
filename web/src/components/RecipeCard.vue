@@ -9,6 +9,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'addToPlan', recipeId: number): void
   (e: 'toggleFavorite', recipeId: number): void
+  (e: 'open', recipeId: number): void
 }>()
 
 const matchClass = computed(() => {
@@ -41,7 +42,7 @@ const foodIcon = computed(() => {
   <article class="recipe-card">
     <div class="match-bar" :class="matchClass" :title="matchLabel" />
 
-    <div class="recipe-image" :class="toneClass">
+    <div class="recipe-image" :class="toneClass" role="button" tabindex="0" @click="emit('open', recipe.id)" @keyup.enter="emit('open', recipe.id)">
       <div class="food-bg" />
       <img
         v-if="recipe.coverImageUrl"
@@ -56,7 +57,7 @@ const foodIcon = computed(() => {
         class="card-save"
         type="button"
         aria-label="收藏菜谱"
-        @click="emit('toggleFavorite', recipe.id)"
+        @click.stop="emit('toggleFavorite', recipe.id)"
       >♡</button>
 
       <span class="match-badge" :class="{ 'full-match': recipe.matchPercent && recipe.matchPercent >= 95 }">
@@ -65,7 +66,7 @@ const foodIcon = computed(() => {
     </div>
 
     <div class="recipe-body">
-      <h3>{{ recipe.name }}</h3>
+      <h3 class="recipe-title-link" role="button" tabindex="0" @click="emit('open', recipe.id)" @keyup.enter="emit('open', recipe.id)">{{ recipe.name }}</h3>
       <p class="meta">
         {{ recipe.category }}
         <template v-if="recipe.cookingMinutes"> · {{ recipe.cookingMinutes }} 分钟</template>
@@ -75,9 +76,23 @@ const foodIcon = computed(() => {
         </template>
       </p>
 
-      <button class="card-action" type="button" @click="emit('addToPlan', recipe.id)">
+      <button class="card-action" type="button" @click.stop="emit('addToPlan', recipe.id)">
         ＋ 加入备餐计划
       </button>
     </div>
   </article>
 </template>
+
+<style scoped>
+.recipe-image[role='button'],
+.recipe-title-link {
+  cursor: pointer;
+}
+.recipe-title-link {
+  margin: 0;
+  transition: color 0.15s;
+}
+.recipe-title-link:hover {
+  color: var(--light-orange);
+}
+</style>

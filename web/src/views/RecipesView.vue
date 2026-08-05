@@ -83,6 +83,10 @@ function goToPlan() {
   router.push('/meal-plan')
 }
 
+function openRecipe(id: number) {
+  router.push({ name: 'recipeDetail', params: { id: String(id) } })
+}
+
 function toggleFavorite(_id: number) {
   // 收藏功能下一步接入
 }
@@ -118,6 +122,7 @@ onMounted(() => loadFirstPage())
           :recipe="recipe"
           @add-to-plan="goToPlan"
           @toggle-favorite="toggleFavorite"
+          @open="openRecipe"
         />
       </div>
       <p v-if="errorMessage" class="error-copy recipes-inline-error">{{ errorMessage }}</p>
