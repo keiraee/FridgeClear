@@ -41,10 +41,18 @@
 *::before,
 *::after { box-sizing: border-box; }
 
+html {
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   line-height: 1.6;
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 button {
@@ -74,19 +82,23 @@ input, select, textarea { font: inherit; }
 }
 
 /* --- App Shell --- */
-#app { min-height: 100vh; }
+#app { min-height: 100vh; overflow-x: clip; max-width: 100%; }
 
 .site-shell {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   max-width: 1440px;
+  width: 100%;
   margin: 0 auto;
   background: var(--cream);
+  overflow-x: clip;
 }
 
 .page-main {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   padding: 0 56px 80px;
 }
 
@@ -600,8 +612,9 @@ input, select, textarea { font: inherit; }
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1 1 180px;
   min-width: 0;
-  width: min(280px, 28vw);
+  max-width: 280px;
   border: 1px solid var(--sage-border);
   border-radius: var(--radius-md);
   padding: 0 12px;
@@ -1883,7 +1896,6 @@ button:disabled,
   .top-nav button::after { left: 12px; right: 12px; }
 
   .header-actions { gap: 8px; }
-  .global-search { width: min(220px, 34vw); }
 
   .search-btn span { display: none; }
 
@@ -1905,7 +1917,7 @@ button:disabled,
   }
 
   .recipe-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
   }
 
@@ -1984,18 +1996,56 @@ button:disabled,
    ============================================================ */
 @media (max-width: 640px) {
   .site-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 8px;
     height: auto;
     min-height: 56px;
     padding: 10px 16px;
-    flex-wrap: nowrap;
-    gap: 10px;
   }
 
-  .logo { font-size: 18px; }
+  .logo {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: 18px;
+    min-width: 0;
+  }
   .logo mark { width: 28px; height: 28px; font-size: 15px; }
 
   .top-nav {
     display: none;
+  }
+
+  .header-actions {
+    display: contents;
+  }
+
+  .global-search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex: none;
+    max-width: none;
+    width: 100%;
+    padding: 0 10px;
+  }
+
+  .global-search input {
+    padding: 8px 0;
+    font-size: 16px;
+  }
+
+  .user-greeting { display: none; }
+
+  .sign-in-btn {
+    grid-column: 2;
+    grid-row: 1;
+    display: inline-flex;
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: 36px;
+    justify-self: end;
   }
 
   .bottom-nav {
@@ -2048,29 +2098,17 @@ button:disabled,
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   }
 
-  .header-actions { margin-left: auto; min-width: 0; }
-  .global-search {
-    flex: 1;
-    width: auto;
-    max-width: 200px;
-    padding: 0 10px;
-  }
-  .global-search input {
-    padding: 8px 0;
-    font-size: 12px;
-  }
-  .user-greeting { display: none; }
   .icon-btn { display: none; }
-  .sign-in-btn {
-    display: inline-flex;
-    padding: 8px 12px;
-    font-size: 13px;
-    min-height: 36px;
-  }
   .search-btn span { display: none; }
   .search-btn { padding: 8px 10px; }
 
   .page-main { padding: 0 16px 40px; }
+
+  .home-title,
+  .page-heading-row h1,
+  .plan-page-header h1 {
+    font-size: 1.5rem;
+  }
 
   .home-pantry-bar {
     padding-bottom: 20px;
@@ -2111,7 +2149,7 @@ button:disabled,
   .section-head h2 { font-size: 21px; }
 
   .recipe-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 
@@ -2151,8 +2189,6 @@ button:disabled,
   .ai-strip h2 { font-size: 22px; }
 
   .config-form { padding: 18px; }
-
-  .plan-page-header h1 { font-size: 24px; }
 
   .plan-summary-card { flex-direction: column; gap: 8px; }
 
