@@ -37,11 +37,20 @@ public class AiChatGateway {
     }
 
     public ChatResult complete(String systemPrompt, String userPrompt) {
-        // 优先使用平台全局配置；未配置/未启用时，在 BYOK 开启时才回退到用户自配 Provider。
+        ResolvedConfig config = resolveConfig();
+        return completeWith(config.protocol(), config.baseUrl(), config.modelName(), config.apiKey(),
+                systemPrompt, userPrompt);
+    }
+
+    /** 提交备餐任务前校验，避免创建注定失败的后台任务。 */
+    public void assertAvailable() {
+        resolveConfig();
+    }
+
+    private ResolvedConfig resolveConfig() {
         SystemAiConfig systemConfig = systemConfigRepository.findSingleton().orElse(null);
         if (systemConfig != null && systemConfig.isEnabled()) {
-            return completeWith(systemConfig.getProtocol(), systemConfig.getBaseUrl(), systemConfig.getModelName(),
-                    crypto.decrypt(systemConfig.getApiKeyCiphertext()), systemPrompt, userPrompt);
+            return resolvedFromSystem(systemConfig);
         }
         if (!byokEnabled) {
             throw new AiServiceUnavailableException("AI 服务暂不可用，请稍后再试");
@@ -49,9 +58,25 @@ public class AiChatGateway {
         AiProviderProfile provider = providerRepository.findByUserIdAndActiveTrue(CurrentUser.id())
                 .filter(AiProviderProfile::isEnabled)
                 .orElseThrow(() -> new AiServiceUnavailableException("AI 服务暂不可用，请稍后再试"));
-        return completeWith(provider.getProtocol(), provider.getBaseUrl(), provider.getModelName(),
-                crypto.decrypt(provider.getApiKeyCiphertext()), systemPrompt, userPrompt);
+        return new ResolvedConfig(provider.getProtocol(), provider.getBaseUrl(), provider.getModelName(),
+                crypto.decrypt(provider.getApiKeyCiphertext()));
     }
+
+    private ResolvedConfig resolvedFromSystem(SystemAiConfig systemConfig) {
+        if (systemConfig.getProtocol() != AiProtocol.OPENAI_CHAT) {
+            throw new AiServiceUnavailableException("当前备餐计划仅支持 OpenAI 兼容接口，请在管理端选择 OPENAI_CHAT 协议");
+        }
+        if (systemConfig.getModelName() == null || systemConfig.getModelName().isBlank()) {
+            throw new AiServiceUnavailableException("AI 服务暂不可用，请先在管理端配置模型");
+        }
+        if (systemConfig.getApiKeyCiphertext() == null || systemConfig.getApiKeyCiphertext().isBlank()) {
+            throw new AiServiceUnavailableException("AI 服务暂不可用，请先在管理端配置 API Key");
+        }
+        return new ResolvedConfig(systemConfig.getProtocol(), systemConfig.getBaseUrl(), systemConfig.getModelName(),
+                crypto.decrypt(systemConfig.getApiKeyCiphertext()));
+    }
+
+    private record ResolvedConfig(AiProtocol protocol, String baseUrl, String modelName, String apiKey) {}
 
     private ChatResult completeWith(AiProtocol protocol, String baseUrl, String modelName, String apiKey,
                                     String systemPrompt, String userPrompt) {

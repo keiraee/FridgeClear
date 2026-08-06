@@ -20,12 +20,16 @@ import com.sccothe.fridgeclear.recipe.repository.RecipeIngredientQueryRepository
 import com.sccothe.fridgeclear.recipe.repository.IngredientRepository;
 import com.sccothe.fridgeclear.recipe.repository.RecipeMediaQueryRepository;
 import com.sccothe.fridgeclear.recipe.service.IngredientNameNormalizer;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -44,6 +48,7 @@ public class MealPlanService {
     private final MealPlanItemRepository itemRepository;
     private final ShoppingListItemRepository shoppingRepository;
     private final ObjectMapper objectMapper;
+    private final MealPlanGenerationWorker generationWorker;
 
     public MealPlanService(PantryItemRepository pantryRepository, RecipeRepository recipeRepository,
                            RecipeIngredientQueryRepository recipeIngredientRepository,
@@ -51,7 +56,8 @@ public class MealPlanService {
                            RecipeMediaQueryRepository mediaRepository,
                            AiChatGateway aiGateway, AiPlanRunRepository aiRunRepository,
                            MealPlanRepository mealPlanRepository, MealPlanItemRepository itemRepository,
-                           ShoppingListItemRepository shoppingRepository, ObjectMapper objectMapper) {
+                           ShoppingListItemRepository shoppingRepository, ObjectMapper objectMapper,
+                           @Lazy MealPlanGenerationWorker generationWorker) {
         this.pantryRepository = pantryRepository;
         this.recipeRepository = recipeRepository;
         this.recipeIngredientRepository = recipeIngredientRepository;
@@ -63,48 +69,141 @@ public class MealPlanService {
         this.itemRepository = itemRepository;
         this.shoppingRepository = shoppingRepository;
         this.objectMapper = objectMapper;
+        this.generationWorker = generationWorker;
     }
 
     @Transactional
-    public MealPlanDtos.Response generate(MealPlanDtos.GenerateRequest request) {
+    public Long submitGenerate(MealPlanDtos.GenerateRequest request) {
         Long userId = CurrentUser.id();
+        validateGenerationInputs(request);
+        aiGateway.assertAvailable();
+        AiPlanRun run = new AiPlanRun();
+        run.setUserId(userId);
+        run.setPromptVersion(PROMPT_VERSION);
+        run.setRequestJson(writeJson(request));
+        run.setStatus(MealPlanEnums.AiRunStatus.RUNNING);
+        run.setModelName("unknown");
+        run = aiRunRepository.save(run);
+        Long runId = run.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                generationWorker.executeAsync(runId);
+            }
+        });
+        return runId;
+    }
+
+    @Transactional
+    public void executeGenerate(Long runId) {
+        AiPlanRun run = aiRunRepository.findById(runId)
+                .orElseThrow(() -> new ResourceNotFoundException("生成任务不存在: " + runId));
+        if (run.getStatus() != MealPlanEnums.AiRunStatus.RUNNING) {
+            return;
+        }
+        MealPlanDtos.GenerateRequest request = readGenerateRequest(run.getRequestJson());
+        Long userId = run.getUserId();
+        try {
+            List<PantryItem> pantry = loadPantry(userId, request);
+            List<Recipe> recipes = recipeRepository.findByStatus(RecipeEnums.Status.ACTIVE, PageRequest.of(0, 80)).getContent();
+            if (recipes.isEmpty()) {
+                throw new IllegalStateException("暂无可用菜谱，请先导入 HowToCook 数据");
+            }
+            Map<Long, List<RecipeIngredient>> ingredientsByRecipe = recipeIngredientRepository.findByRecipeIdIn(
+                            recipes.stream().map(Recipe::getId).toList()).stream()
+                    .collect(Collectors.groupingBy(RecipeIngredient::getRecipeId));
+
+            AiChatGateway.ChatResult result = aiGateway.complete(
+                    systemPrompt(), userPrompt(request, pantry, recipes, ingredientsByRecipe));
+            run.setModelName(result.modelName());
+            run.setResponseJson(result.content());
+            run.setStatus(MealPlanEnums.AiRunStatus.SUCCESS);
+            run.setFinishedAt(LocalDateTime.now());
+            aiRunRepository.save(run);
+            archiveActivePlans(userId);
+            persistPlan(request, pantry, recipes, ingredientsByRecipe, run, result.content(), userId);
+        } catch (Exception exception) {
+            run.setStatus(MealPlanEnums.AiRunStatus.FAILED);
+            run.setErrorMessage(exception.getMessage());
+            run.setFinishedAt(LocalDateTime.now());
+            aiRunRepository.save(run);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public MealPlanDtos.TaskStatusResponse getTaskStatus(Long taskId) {
+        Long userId = CurrentUser.id();
+        AiPlanRun run = aiRunRepository.findByIdAndUserId(taskId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("生成任务不存在: " + taskId));
+        Long mealPlanId = null;
+        MealPlanDtos.Response result = null;
+        if (run.getStatus() == MealPlanEnums.AiRunStatus.SUCCESS) {
+            MealPlan plan = mealPlanRepository.findByAiPlanRunId(taskId).orElse(null);
+            if (plan != null) {
+                mealPlanId = plan.getId();
+                result = buildGenerateResponse(plan, run, userId);
+            }
+        }
+        return new MealPlanDtos.TaskStatusResponse(run.getId(), run.getStatus(), mealPlanId, run.getErrorMessage(), result);
+    }
+
+    private void validateGenerationInputs(MealPlanDtos.GenerateRequest request) {
+        if (recipeRepository.findByStatus(RecipeEnums.Status.ACTIVE, PageRequest.of(0, 1)).isEmpty()) {
+            throw new IllegalStateException("暂无可用菜谱，请先导入 HowToCook 数据");
+        }
+        if (request.mealTypes() == null || request.mealTypes().isEmpty()) {
+            throw new IllegalStateException("请至少选择一个餐次");
+        }
+    }
+
+    private List<PantryItem> loadPantry(Long userId, MealPlanDtos.GenerateRequest request) {
         List<PantryItem> pantry = pantryRepository.findByUserIdAndStatusOrderByExpireDateAscIdAsc(
                 userId, PantryItemStatus.AVAILABLE);
         if (request.usePantryItemIds() != null && !request.usePantryItemIds().isEmpty()) {
             Set<Long> selected = new HashSet<>(request.usePantryItemIds());
             pantry = pantry.stream().filter(item -> selected.contains(item.getId())).toList();
         }
-        List<Recipe> recipes = recipeRepository.findByStatus(RecipeEnums.Status.ACTIVE, PageRequest.of(0, 80)).getContent();
-        if (recipes.isEmpty()) throw new IllegalStateException("暂无可用菜谱，请先导入 HowToCook 数据");
-        Map<Long, List<RecipeIngredient>> ingredientsByRecipe = recipeIngredientRepository.findByRecipeIdIn(
-                        recipes.stream().map(Recipe::getId).toList()).stream()
-                .collect(Collectors.groupingBy(RecipeIngredient::getRecipeId));
+        return pantry;
+    }
 
-        String requestJson = writeJson(request);
-        AiPlanRun run = new AiPlanRun();
-        run.setUserId(userId);
-        run.setPromptVersion(PROMPT_VERSION);
-        run.setRequestJson(requestJson);
-        run.setStatus(MealPlanEnums.AiRunStatus.RUNNING);
-        run.setModelName("unknown");
-        run = aiRunRepository.save(run);
-
+    private MealPlanDtos.GenerateRequest readGenerateRequest(String json) {
         try {
-            AiChatGateway.ChatResult result = aiGateway.complete(systemPrompt(), userPrompt(request, pantry, recipes, ingredientsByRecipe));
-            run.setModelName(result.modelName());
-            run.setResponseJson(result.content());
-            run.setStatus(MealPlanEnums.AiRunStatus.SUCCESS);
-            run.setFinishedAt(java.time.LocalDateTime.now());
-            aiRunRepository.save(run);
-            archiveActivePlans(userId);
-            return persistPlan(request, pantry, recipes, ingredientsByRecipe, run, result.content(), userId);
-        } catch (RuntimeException exception) {
-            run.setStatus(MealPlanEnums.AiRunStatus.FAILED);
-            run.setErrorMessage(exception.getMessage());
-            run.setFinishedAt(java.time.LocalDateTime.now());
-            aiRunRepository.save(run);
-            throw exception;
+            return objectMapper.readValue(json, MealPlanDtos.GenerateRequest.class);
+        } catch (Exception exception) {
+            throw new IllegalStateException("任务请求参数无法解析", exception);
         }
+    }
+
+    private MealPlanDtos.Response buildGenerateResponse(MealPlan plan, AiPlanRun run, Long userId) {
+        List<MealPlanItem> items = itemRepository.findByMealPlanIdOrderByPlanDateAscSortOrderAsc(plan.getId());
+        List<Long> recipeIds = items.stream().map(MealPlanItem::getRecipeId).distinct().toList();
+        Map<Long, String> recipeNames = recipeRepository.findAllById(recipeIds).stream()
+                .collect(Collectors.toMap(Recipe::getId, Recipe::getName, (first, ignored) -> first));
+        Map<Long, String> coverImageUrls = loadCoverImageUrls(recipeIds);
+        List<MealPlanDtos.ItemResponse> itemResponses = items.stream()
+                .map(item -> toItemResponse(item, recipeNames.getOrDefault(item.getRecipeId(), "未知菜谱"),
+                        coverImageUrls.get(item.getRecipeId())))
+                .toList();
+        JsonNode root = parseJson(run.getResponseJson());
+        String summary = textValue(root, "summary", "已根据库存生成备餐计划");
+        List<PantryItem> pantry = pantryRepository.findByUserIdAndStatusOrderByExpireDateAscIdAsc(
+                userId, PantryItemStatus.AVAILABLE);
+        List<MealPlanDtos.ExpiringIngredient> expiring = buildExpiringIngredients(pantry);
+        return new MealPlanDtos.Response(plan.getId(), summary, expiring, itemResponses, shoppingResponses(plan.getId()));
+    }
+
+    private List<MealPlanDtos.ExpiringIngredient> buildExpiringIngredients(List<PantryItem> pantry) {
+        Map<String, PantryItem> earliestByIngredient = new LinkedHashMap<>();
+        pantry.stream().filter(item -> item.getExpireDate() != null).forEach(item -> {
+            String key = item.getIngredientId() == null
+                    ? IngredientNameNormalizer.normalize(item.getRawName())
+                    : "id:" + item.getIngredientId();
+            earliestByIngredient.putIfAbsent(key, item);
+        });
+        return earliestByIngredient.values().stream().limit(10)
+                .map(item -> new MealPlanDtos.ExpiringIngredient(
+                        item.getId(), item.getRawName(), item.getExpireDate(), "优先消耗临近过期食材"))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -304,13 +403,7 @@ public class MealPlanService {
             shoppingResponses.add(new MealPlanDtos.ShoppingResponse(entity.getId(), entity.getName(), entity.getQuantity(), entity.getUnit(), entity.getReason(), entity.getStatus()));
         }
         String summary = textValue(root, "summary", "已根据库存生成备餐计划");
-        Map<String, PantryItem> earliestByIngredient = new LinkedHashMap<>();
-        pantry.stream().filter(item -> item.getExpireDate() != null).forEach(item -> {
-            String key = item.getIngredientId() == null ? IngredientNameNormalizer.normalize(item.getRawName()) : "id:" + item.getIngredientId();
-            earliestByIngredient.putIfAbsent(key, item);
-        });
-        List<MealPlanDtos.ExpiringIngredient> expiring = earliestByIngredient.values().stream().limit(10)
-                .map(item -> new MealPlanDtos.ExpiringIngredient(item.getId(), item.getRawName(), item.getExpireDate(), "优先消耗临近过期食材")).toList();
+        List<MealPlanDtos.ExpiringIngredient> expiring = buildExpiringIngredients(pantry);
         return new MealPlanDtos.Response(plan.getId(), summary, expiring, itemResponses, shoppingResponses);
     }
 

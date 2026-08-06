@@ -25,10 +25,26 @@ export interface MealPlanList {
   totalPages: number
 }
 
-export async function generateMealPlan(payload: MealPlanGenerateRequest): Promise<MealPlan> {
-  // AI 需要读取候选菜谱并等待模型响应，不能使用普通接口的 30 秒超时。
-  const response = await http.post<ApiResponse<BackendPlan>>('/meal-plans/generate', payload, { timeout: 180000 })
-  const data = response.data.data
+export type MealPlanTaskStatus = 'RUNNING' | 'SUCCESS' | 'FAILED'
+
+export interface MealPlanTask {
+  taskId: number
+  status: MealPlanTaskStatus
+  mealPlanId?: number | null
+  errorMessage?: string | null
+  result?: BackendPlan | null
+}
+
+const GENERATION_POLL_INTERVAL_MS = 2000
+const GENERATION_TIMEOUT_MS = 180000
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+function mapBackendPlan(data: BackendPlan): MealPlan {
   return {
     id: data.mealPlanId,
     title: 'AI 冰箱消耗计划',
@@ -40,6 +56,50 @@ export async function generateMealPlan(payload: MealPlanGenerateRequest): Promis
     items: data.items,
     shoppingList: data.shoppingList,
   }
+}
+
+export async function submitMealPlanGeneration(payload: MealPlanGenerateRequest): Promise<number> {
+  const response = await http.post<ApiResponse<{ taskId: number }>>('/meal-plans/generate', payload, { timeout: 15000 })
+  return response.data.data.taskId
+}
+
+export async function getMealPlanTask(taskId: number): Promise<MealPlanTask> {
+  const response = await http.get<ApiResponse<MealPlanTask>>(`/meal-plans/generate/tasks/${taskId}`, { timeout: 15000 })
+  return response.data.data
+}
+
+export async function generateMealPlan(
+  payload: MealPlanGenerateRequest,
+  options?: { signal?: AbortSignal },
+): Promise<MealPlan> {
+  const taskId = await submitMealPlanGeneration(payload)
+  const deadline = Date.now() + GENERATION_TIMEOUT_MS
+
+  while (Date.now() < deadline) {
+    if (options?.signal?.aborted) {
+      throw new DOMException('生成已取消', 'AbortError')
+    }
+
+    const task = await getMealPlanTask(taskId)
+    if (task.status === 'SUCCESS') {
+      if (task.result) return mapBackendPlan(task.result)
+      if (task.mealPlanId) return getMealPlan(task.mealPlanId)
+      throw new Error('生成成功但未返回备餐计划')
+    }
+    if (task.status === 'FAILED') {
+      const error = new Error(task.errorMessage ?? '生成失败，请稍后重试。') as Error & { code?: string }
+      if (task.errorMessage?.includes('AI 服务暂不可用')) {
+        error.code = 'AI_SERVICE_UNAVAILABLE'
+      }
+      throw error
+    }
+
+    await sleep(GENERATION_POLL_INTERVAL_MS)
+  }
+
+  const timeoutError = new Error('AI 响应时间较长，请稍后重试或检查模型服务状态。') as Error & { code?: string }
+  timeoutError.code = 'POLL_TIMEOUT'
+  throw timeoutError
 }
 
 export async function listMealPlans(): Promise<MealPlanList> {

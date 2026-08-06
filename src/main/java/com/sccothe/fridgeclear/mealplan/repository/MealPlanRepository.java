@@ -13,4 +13,5 @@ public interface MealPlanRepository extends JpaRepository<MealPlan, Long> {
     Page<MealPlan> findByUserIdAndStatus(Long userId, MealPlanEnums.PlanStatus status, Pageable pageable);
     Optional<MealPlan> findByIdAndUserId(Long id, Long userId);
     List<MealPlan> findByUserIdAndStatus(Long userId, MealPlanEnums.PlanStatus status);
+    Optional<MealPlan> findByAiPlanRunId(Long aiPlanRunId);
 }

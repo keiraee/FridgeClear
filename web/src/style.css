@@ -1745,7 +1745,7 @@ button:disabled,
 
   .bottom-nav {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(var(--bottom-nav-cols, 4), minmax(0, 1fr));
     position: fixed;
     left: 0;
     right: 0;
@@ -1765,11 +1765,18 @@ button:disabled,
     border: 0;
     background: transparent;
     color: var(--gray-muted);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
     min-height: 44px;
-    padding: 4px 2px;
+    padding: 4px 1px;
     cursor: pointer;
+  }
+
+  .bottom-nav button span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .bottom-nav button.active {

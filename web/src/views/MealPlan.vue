@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, reactive, watch, computed, onUnmounted, onMounted } from 'vue'
+import { ref, reactive, watch, computed, onUnmounted, onMounted, onActivated } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import type { MealPlan, MealPlanGenerateRequest, MealType, MealPlanItemStatus } from '../types'
 import { archiveMealPlan, generateMealPlan, getMealPlan, updateMealPlanItemStatus, updateShoppingItemStatus } from '../api/mealPlans'
+import { useAuthStore } from '../stores/auth'
 import { useMealPlansStore } from '../stores/mealPlans'
 import MealPlanResult from '../components/MealPlanResult.vue'
 import FcIcon from '../components/FcIcon.vue'
@@ -11,6 +12,7 @@ import FcIcon from '../components/FcIcon.vue'
 defineOptions({ name: 'MealPlan' })
 
 const route = useRoute()
+const auth = useAuthStore()
 const mealPlansStore = useMealPlansStore()
 const { history: historyPlans, loading: historyLoading } = storeToRefs(mealPlansStore)
 
@@ -23,6 +25,7 @@ const isGenerating = ref(false)
 const generationError = ref('')
 const elapsedSeconds = ref(0)
 let progressTimer: ReturnType<typeof setInterval> | undefined
+let generationAbortController: AbortController | undefined
 
 const generationStage = computed(() => {
   if (elapsedSeconds.value < 10) return '正在读取你的库存和临期食材…'
@@ -44,6 +47,16 @@ function startProgressTimer() {
 function stopProgressTimer() {
   if (progressTimer) clearInterval(progressTimer)
   progressTimer = undefined
+}
+
+function resetPageState() {
+  generationAbortController?.abort()
+  generationAbortController = undefined
+  stopProgressTimer()
+  isGenerating.value = false
+  generationError.value = ''
+  plan.value = null
+  elapsedSeconds.value = 0
 }
 
 const mealTypeOptions: { value: MealType; label: string }[] = [
@@ -71,24 +84,37 @@ async function handleGenerate() {
   isGenerating.value = true
   generationError.value = ''
   plan.value = null
+  generationAbortController?.abort()
+  generationAbortController = new AbortController()
   startProgressTimer()
 
   try {
-    plan.value = await generateMealPlan({ ...config })
+    plan.value = await generateMealPlan({ ...config }, { signal: generationAbortController.signal })
     mealPlansStore.invalidate()
     await loadHistory()
   } catch (error) {
-    const axiosError = error as { code?: string; response?: { status?: number; data?: { code?: string; message?: string } } }
-    if (axiosError.response?.data?.code === 'AI_SERVICE_UNAVAILABLE' || axiosError.response?.status === 503) {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    const axiosError = error as {
+      code?: string
+      message?: string
+      response?: { status?: number; data?: { code?: string; message?: string } }
+    }
+    if (
+      axiosError.code === 'AI_SERVICE_UNAVAILABLE'
+      || axiosError.response?.data?.code === 'AI_SERVICE_UNAVAILABLE'
+      || axiosError.response?.status === 503
+      || axiosError.message?.includes('AI 服务暂不可用')
+    ) {
       generationError.value = 'AI 服务暂不可用，请稍后再试。'
-    } else if (axiosError.code === 'ECONNABORTED') {
+    } else if (axiosError.code === 'POLL_TIMEOUT' || axiosError.code === 'ECONNABORTED') {
       generationError.value = 'AI 响应时间较长，请稍后重试或检查模型服务状态。'
     } else {
-      generationError.value = axiosError.response?.data?.message ?? '生成失败，请稍后重试。'
+      generationError.value = axiosError.response?.data?.message ?? axiosError.message ?? '生成失败，请稍后重试。'
     }
   } finally {
     isGenerating.value = false
     stopProgressTimer()
+    generationAbortController = undefined
   }
 }
 
@@ -153,10 +179,30 @@ async function handleToggleShoppingItem(itemId: number) {
 }
 
 // --- Lifecycle ---
-// Reset error when config changes
 watch(() => config.mealTypes, () => { generationError.value = '' })
-onUnmounted(stopProgressTimer)
-onMounted(() => { void loadHistory() })
+
+watch(() => auth.user?.id, (userId, previousId) => {
+  if (previousId === undefined) return
+  if (userId === previousId) return
+  resetPageState()
+  if (userId) void mealPlansStore.fetchHistory({ force: true })
+})
+
+onActivated(() => {
+  if (!auth.isAuthenticated) {
+    resetPageState()
+    return
+  }
+  if (!historyPlans.value.length) void loadHistory()
+})
+
+onUnmounted(() => {
+  generationAbortController?.abort()
+  stopProgressTimer()
+})
+onMounted(() => {
+  if (auth.isAuthenticated) void loadHistory()
+})
 </script>
 
 <template>

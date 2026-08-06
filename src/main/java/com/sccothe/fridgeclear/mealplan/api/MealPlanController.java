@@ -9,6 +9,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -23,11 +25,23 @@ public class MealPlanController {
     public MealPlanController(MealPlanService service) { this.service = service; }
 
     @PostMapping("/generate")
-    @Operation(summary = "生成 AI 备餐计划")
-    public ApiResponse<MealPlanDtos.Response> generate(@Valid @RequestBody MealPlanDtos.GenerateRequest request, HttpServletRequest httpRequest) {
-        Object value = httpRequest.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        String requestId = value == null ? "req_" + UUID.randomUUID() : value.toString();
-        return ApiResponse.success(service.generate(request), requestId);
+    @Operation(summary = "提交 AI 备餐计划生成任务")
+    public ResponseEntity<ApiResponse<MealPlanDtos.SubmitResponse>> generate(
+            @Valid @RequestBody MealPlanDtos.GenerateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Long taskId = service.submitGenerate(request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success(new MealPlanDtos.SubmitResponse(taskId), requestId(httpRequest)));
+    }
+
+    @GetMapping("/generate/tasks/{taskId}")
+    @Operation(summary = "查询 AI 备餐计划生成任务状态")
+    public ApiResponse<MealPlanDtos.TaskStatusResponse> taskStatus(
+            @PathVariable Long taskId,
+            HttpServletRequest httpRequest
+    ) {
+        return ApiResponse.success(service.getTaskStatus(taskId), requestId(httpRequest));
     }
 
     @GetMapping
@@ -68,8 +82,11 @@ public class MealPlanController {
     }
 
     private <T> ApiResponse<T> success(T data, HttpServletRequest request) {
+        return ApiResponse.success(data, requestId(request));
+    }
+
+    private String requestId(HttpServletRequest request) {
         Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
-        String requestId = value == null ? "req_" + UUID.randomUUID() : value.toString();
-        return ApiResponse.success(data, requestId);
+        return value == null ? "req_" + UUID.randomUUID() : value.toString();
     }
 }

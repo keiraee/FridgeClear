@@ -20,7 +20,7 @@ const navItems = computed(() => {
   return items
 })
 
-const mobileNavItems = computed(() => navItems.value.filter((item) => item.path !== '/admin/ai-config'))
+const bottomNavColCount = computed(() => navItems.value.length)
 
 const activeNav = computed(() => {
   if (route.path === '/') return '/'
@@ -82,9 +82,14 @@ function signOut() {
     </div>
   </header>
 
-  <nav v-if="!hideChrome" class="bottom-nav" aria-label="底部导航">
+  <nav
+    v-if="!hideChrome"
+    class="bottom-nav"
+    :style="{ '--bottom-nav-cols': bottomNavColCount }"
+    aria-label="底部导航"
+  >
     <button
-      v-for="item in mobileNavItems"
+      v-for="item in navItems"
       :key="item.path"
       type="button"
       :class="{ active: activeNav === item.path }"

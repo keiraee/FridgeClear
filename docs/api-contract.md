@@ -282,82 +282,57 @@ GET /api/v1/recommendations/recipes
 
 ## 5. AI 备餐计划 API
 
-### 5.1 生成备餐计划
+### 5.1 提交备餐计划生成任务
 
 ```http
 POST /api/v1/meal-plans/generate
 ```
 
-请求：
-
-```json
-{
-  "days": 3,
-  "peopleCount": 2,
-  "maxCookingMinutes": 30,
-  "mealTypes": ["DINNER"],
-  "dietaryPreference": "家常菜",
-  "dislikedIngredients": ["香菜"],
-  "availableAppliances": ["炒锅", "电饭煲"],
-  "usePantryItemIds": [1, 2, 3]
-}
-```
-
-参数规则：
-
-| 字段 | 规则 |
-|---|---|
-| `days` | 1-7 |
-| `peopleCount` | 1-10 |
-| `maxCookingMinutes` | 10-180 |
-| `mealTypes` | 至少一个 |
-| `dietaryPreference` | 可选 |
-| `dislikedIngredients` | 可选 |
-| `availableAppliances` | 可选 |
-| `usePantryItemIds` | 为空时默认使用全部可用库存 |
+HTTP `202 Accepted`。请求体同原同步接口，立即返回 `taskId`（对应 `ai_plan_run.id`），后台异步调用 AI。
 
 响应 `data`：
 
 ```json
 {
-  "mealPlanId": 2001,
-  "summary": "优先消耗西红柿和鸡蛋，3 天预计需要额外采购 4 种食材。",
-  "expiringIngredients": [
-    {
-      "pantryItemId": 1,
-      "name": "西红柿",
-      "expireDate": "2026-08-04",
-      "reason": "临近过期，安排在第一天使用"
-    }
-  ],
-  "items": [
-    {
-      "id": 3001,
-      "planDate": "2026-08-02",
-      "mealType": "DINNER",
-      "recipe": {
-        "id": 101,
-        "name": "西红柿炒鸡蛋"
-      },
-      "servings": 2,
-      "usedIngredients": ["西红柿", "鸡蛋"],
-      "missingIngredients": ["食用油"],
-      "reason": "库存匹配度高，烹饪时间较短",
-      "status": "PLANNED"
-    }
-  ],
-  "shoppingList": [
-    {
-      "name": "食用油",
-      "quantity": 30,
-      "unit": "ml",
-      "reason": "计划中 2 道菜需要"
-    }
-  ]
+  "taskId": 42
 }
 ```
 
-### 5.2 查询备餐计划列表
+### 5.2 查询生成任务状态
+
+```http
+GET /api/v1/meal-plans/generate/tasks/{taskId}
+```
+
+响应 `data`：
+
+```json
+{
+  "taskId": 42,
+  "status": "RUNNING",
+  "mealPlanId": null,
+  "errorMessage": null,
+  "result": null
+}
+```
+
+`status`：`RUNNING | SUCCESS | FAILED`。`SUCCESS` 时 `mealPlanId` 与 `result` 可用，`result` 结构同原同步生成响应。
+
+失败示例：
+
+```json
+{
+  "taskId": 42,
+  "status": "FAILED",
+  "mealPlanId": null,
+  "errorMessage": "AI 服务暂不可用，请稍后再试",
+  "result": null
+}
+```
+
+前端建议每 2 秒轮询一次，总等待不超过 3 分钟。
+
+### 5.3 查询备餐计划列表
 
 ```http
 GET /api/v1/meal-plans
@@ -373,13 +348,13 @@ page
 size
 ```
 
-### 5.3 查询备餐计划详情
+### 5.4 查询备餐计划详情
 
 ```http
 GET /api/v1/meal-plans/{id}
 ```
 
-### 5.4 修改计划项状态
+### 5.5 修改计划项状态
 
 ```http
 PATCH /api/v1/meal-plans/{mealPlanId}/items/{itemId}/status
@@ -393,7 +368,7 @@ PATCH /api/v1/meal-plans/{mealPlanId}/items/{itemId}/status
 }
 ```
 
-### 5.5 删除或归档计划
+### 5.6 删除或归档计划
 
 ```http
 DELETE /api/v1/meal-plans/{id}
@@ -487,7 +462,7 @@ AI 向量化
 | Pantry | `GET/POST/PUT/PATCH/DELETE /pantry-items` |
 | RecipeList | `GET /recipes`、`GET /favorites` |
 | RecipeDetail | `GET /recipes/{id}` |
-| MealPlan | `POST /meal-plans/generate`、`GET /meal-plans/{id}` |
+| MealPlan | `POST /meal-plans/generate`、`GET /meal-plans/generate/tasks/{taskId}`、`GET /meal-plans/{id}` |
 | ShoppingList | `GET /meal-plans/{id}/shopping-list`、`PATCH /shopping-list-items/{id}/status` |
 
 ## 10. API 实现顺序

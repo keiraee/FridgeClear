@@ -27,6 +27,16 @@ public final class MealPlanDtos {
 
     public record Response(Long mealPlanId, String summary, List<ExpiringIngredient> expiringIngredients,
                            List<ItemResponse> items, List<ShoppingResponse> shoppingList) {}
+
+    public record SubmitResponse(Long taskId) {}
+
+    public record TaskStatusResponse(
+            Long taskId,
+            MealPlanEnums.AiRunStatus status,
+            Long mealPlanId,
+            String errorMessage,
+            Response result
+    ) {}
     public record ListItem(Long id, String title, LocalDate startDate, LocalDate endDate, MealPlanEnums.PlanStatus status) {}
     public record PageResponse(List<ListItem> content, int page, int size, long totalElements, int totalPages) {}
     public record DetailResponse(Long id, String title, LocalDate startDate, LocalDate endDate,
