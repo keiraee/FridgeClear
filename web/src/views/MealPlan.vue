@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed, onUnmounted, onMounted, onActivated } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import type { MealPlan, MealPlanGenerateRequest, MealType, MealPlanItemStatus } from '../types'
 import { archiveMealPlan, generateMealPlan, getMealPlan, updateMealPlanItemStatus, updateShoppingItemStatus } from '../api/mealPlans'
 import { useAuthStore } from '../stores/auth'
 import { useMealPlansStore } from '../stores/mealPlans'
+import { useMealPlanQueueStore } from '../stores/mealPlanQueue'
+import { useRecipesStore } from '../stores/recipes'
 import MealPlanResult from '../components/MealPlanResult.vue'
 import LoadingWait from '../components/LoadingWait.vue'
 import FcIcon from '../components/FcIcon.vue'
@@ -14,9 +16,15 @@ import { MEAL_PLAN_LOADING_STAGES } from '../composables/useElapsedTimer'
 defineOptions({ name: 'MealPlan' })
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const mealPlansStore = useMealPlansStore()
+const mealPlanQueue = useMealPlanQueueStore()
+const recipesStore = useRecipesStore()
 const { history: historyPlans, loading: historyLoading } = storeToRefs(mealPlansStore)
+const { recipes: queuedRecipes } = storeToRefs(mealPlanQueue)
+
+const visibleHistoryPlans = computed(() => historyPlans.value.filter((item) => item.status !== 'ARCHIVED'))
 
 const config = reactive<MealPlanGenerateRequest>({
   days: 3, peopleCount: 2, maxCookingMinutes: 30, mealTypes: ['DINNER'],
@@ -51,6 +59,24 @@ const focusRecipeId = computed(() => {
   return Number.isFinite(id) && id > 0 ? id : null
 })
 
+async function syncFocusRecipeFromRoute() {
+  if (!focusRecipeId.value) return
+  const cached = recipesStore.getCachedDetail(focusRecipeId.value)
+  if (cached) {
+    mealPlanQueue.add({ id: cached.id, name: cached.name, coverImageUrl: cached.coverImageUrl })
+  } else {
+    const detail = await recipesStore.fetchDetail(focusRecipeId.value)
+    if (detail) {
+      mealPlanQueue.add({ id: detail.id, name: detail.name, coverImageUrl: detail.coverImageUrl })
+    }
+  }
+  if (route.query.recipeId) {
+    const nextQuery = { ...route.query }
+    delete nextQuery.recipeId
+    void router.replace({ query: nextQuery })
+  }
+}
+
 // --- Methods ---
 async function handleGenerate() {
   if (config.mealTypes.length === 0) {
@@ -64,7 +90,12 @@ async function handleGenerate() {
   generationAbortController = new AbortController()
 
   try {
-    plan.value = await generateMealPlan({ ...config }, { signal: generationAbortController.signal })
+    const preferredRecipeIds = mealPlanQueue.recipeIds()
+    plan.value = await generateMealPlan({
+      ...config,
+      preferredRecipeIds: preferredRecipeIds.length ? preferredRecipeIds : undefined,
+    }, { signal: generationAbortController.signal })
+    mealPlanQueue.clear()
     mealPlansStore.invalidate()
     await loadHistory()
   } catch (error) {
@@ -102,13 +133,28 @@ async function openHistory(item: { id: number }) {
 }
 
 async function archiveCurrentPlan() {
-  if (!plan.value || !window.confirm('确定归档当前备餐计划吗？')) return
+  if (!plan.value || !window.confirm('确定删除这份备餐计划吗？')) return
   try {
     await archiveMealPlan(plan.value.id)
     plan.value = null
     mealPlansStore.invalidate()
     await loadHistory()
-  } catch { generationError.value = '归档备餐计划失败' }
+  } catch { generationError.value = '删除备餐计划失败' }
+}
+
+async function deleteHistoryPlan(item: { id: number; title: string }, event: Event) {
+  event.stopPropagation()
+  if (!window.confirm(`确定删除「${item.title}」吗？`)) return
+  try {
+    await archiveMealPlan(item.id)
+    if (plan.value?.id === item.id) plan.value = null
+    mealPlansStore.invalidate()
+    await loadHistory()
+  } catch { generationError.value = '删除备餐计划失败' }
+}
+
+function openQueuedRecipe(id: number) {
+  void router.push({ name: 'recipeDetail', params: { id: String(id) } })
 }
 
 function toggleMealType(mt: MealType) {
@@ -167,6 +213,7 @@ onActivated(() => {
     resetPageState()
     return
   }
+  void syncFocusRecipeFromRoute()
   if (!historyPlans.value.length) void loadHistory()
 })
 
@@ -174,7 +221,14 @@ onUnmounted(() => {
   generationAbortController?.abort()
 })
 onMounted(() => {
-  if (auth.isAuthenticated) void loadHistory()
+  if (auth.isAuthenticated) {
+    void syncFocusRecipeFromRoute()
+    void loadHistory()
+  }
+})
+
+watch(focusRecipeId, (id) => {
+  if (id) void syncFocusRecipeFromRoute()
 })
 </script>
 
@@ -184,9 +238,32 @@ onMounted(() => {
       <div class="plan-page-header">
         <h1>备餐计划</h1>
         <p class="page-desc">设置天数、人数和忌口，根据库存生成一周菜单和采购清单。</p>
-        <p v-if="focusRecipeId" class="plan-focus-hint">
-          已从菜谱详情带入关注菜谱 #{{ focusRecipeId }}。生成计划时 AI 仍会结合库存综合安排，可在结果中查看是否被选入。
-        </p>
+      </div>
+
+      <!-- Queued recipes from recipe detail / elsewhere -->
+      <div v-if="queuedRecipes.length" class="plan-queue-card">
+        <div class="section-head compact">
+          <div>
+            <h2>待安排菜谱</h2>
+            <p class="plan-queue-desc">从菜谱页加入的菜品，生成计划时会优先安排。</p>
+          </div>
+          <button class="plan-queue-clear" type="button" @click="mealPlanQueue.clear()">清空</button>
+        </div>
+        <ul class="plan-queue-list">
+          <li v-for="item in queuedRecipes" :key="item.id" class="plan-queue-item">
+            <button class="plan-queue-name" type="button" @click="openQueuedRecipe(item.id)">
+              {{ item.name }}
+            </button>
+            <button
+              class="plan-history-delete"
+              type="button"
+              aria-label="移除"
+              @click="mealPlanQueue.remove(item.id)"
+            >
+              <FcIcon name="trash" :size="16" />
+            </button>
+          </li>
+        </ul>
       </div>
 
       <!-- Config Form -->
@@ -304,19 +381,34 @@ onMounted(() => {
       <div class="plan-history-card">
         <div class="section-head compact">
           <div><h2>历史计划</h2></div>
-          <span class="list-count">{{ historyLoading ? '加载中…' : `${historyPlans.length} 份` }}</span>
+          <span class="list-count">{{ historyLoading ? '加载中…' : `${visibleHistoryPlans.length} 份` }}</span>
         </div>
-        <div v-if="!historyLoading && !historyPlans.length" class="plan-history-empty">
+        <div v-if="!historyLoading && !visibleHistoryPlans.length" class="plan-history-empty">
           <p>还没有保存的计划</p>
           <p class="plan-history-empty-hint">生成后会自动保存在这里。</p>
         </div>
         <div v-else class="plan-history-list">
-          <button v-for="item in historyPlans" :key="item.id" class="plan-history-item" type="button" :class="{ selected: plan?.id === item.id }" @click="openHistory(item)">
-            <span><strong>{{ item.title }}</strong><small>{{ item.startDate }} 至 {{ item.endDate }}</small></span>
-            <em>{{ item.status === 'ACTIVE' ? '进行中' : '已归档' }}</em>
-          </button>
+          <div
+            v-for="item in visibleHistoryPlans"
+            :key="item.id"
+            class="plan-history-item"
+            :class="{ selected: plan?.id === item.id }"
+          >
+            <button class="plan-history-open" type="button" @click="openHistory(item)">
+              <span><strong>{{ item.title }}</strong><small>{{ item.startDate }} 至 {{ item.endDate }}</small></span>
+              <em>{{ item.status === 'ACTIVE' ? '进行中' : '已结束' }}</em>
+            </button>
+            <button
+              class="plan-history-delete"
+              type="button"
+              aria-label="删除"
+              @click="deleteHistoryPlan(item, $event)"
+            >
+              <FcIcon name="trash" :size="16" />
+            </button>
+          </div>
         </div>
-        <button v-if="plan" class="archive-plan-btn" type="button" @click="archiveCurrentPlan">归档当前计划</button>
+        <button v-if="plan" class="archive-plan-btn" type="button" @click="archiveCurrentPlan">删除当前计划</button>
       </div>
     </section>
 

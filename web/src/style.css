@@ -97,10 +97,24 @@ input, select, textarea { font: inherit; }
 .recipe-search-form input { flex: 1; min-width: 0; padding: 13px 16px; border: 1px solid var(--sage-border); border-radius: var(--radius-md); background: var(--white); outline: none; }
 .recipe-search-form input:focus { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(122, 154, 126, .14); }
 .plan-history-card { margin-top: 28px; padding: 24px; background: var(--white); border: 1px solid var(--sage-border); border-radius: var(--radius-lg); }
+.plan-queue-card { margin-top: 24px; padding: 20px 24px; background: var(--white); border: 1px solid var(--sage-border); border-radius: var(--radius-lg); }
+.plan-queue-desc { margin: 4px 0 0; color: var(--gray-muted); font-size: 13px; line-height: 1.5; }
+.plan-queue-clear { border: 0; background: transparent; color: var(--gray-muted); font-size: 13px; padding: 0; }
+.plan-queue-clear:hover { color: var(--light-orange); }
+.plan-queue-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.plan-queue-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--sage-border); border-radius: var(--radius-md); background: var(--sage-light); }
+.plan-queue-name { flex: 1; border: 0; background: transparent; text-align: left; color: var(--deep-green); font-size: 14px; font-weight: 600; padding: 0; }
+.plan-queue-name:hover { color: var(--sage); }
 .plan-history-list { display: grid; gap: 8px; }
-.plan-history-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; padding: 14px 16px; border: 1px solid var(--sage-border); border-radius: var(--radius-md); background: var(--white); text-align: left; }
+.plan-history-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 0; border: 1px solid var(--sage-border); border-radius: var(--radius-md); background: var(--white); text-align: left; overflow: hidden; }
 .plan-history-item:hover, .plan-history-item.selected { border-color: var(--sage); background: var(--sage-light); }
-.plan-history-item span { display: grid; gap: 3px; }.plan-history-item small { color: var(--gray-text); }.plan-history-item em { color: var(--sage); font-size: 12px; font-style: normal; white-space: nowrap; }.archive-plan-btn { margin-top: 14px; border: 0; background: transparent; color: var(--gray-muted); font-size: 13px; }.archive-plan-btn:hover { color: var(--light-orange); }
+.plan-history-open { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex: 1; min-width: 0; padding: 14px 16px; border: 0; background: transparent; text-align: left; }
+.plan-history-open span { display: grid; gap: 3px; min-width: 0; }
+.plan-history-open small { color: var(--gray-text); }
+.plan-history-open em { color: var(--sage); font-size: 12px; font-style: normal; white-space: nowrap; }
+.plan-history-delete { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-right: 6px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--gray-muted); flex-shrink: 0; }
+.plan-history-delete:hover { color: var(--light-orange); background: rgba(0, 0, 0, 0.04); }
+.archive-plan-btn { margin-top: 14px; border: 0; background: transparent; color: var(--gray-muted); font-size: 13px; }.archive-plan-btn:hover { color: var(--light-orange); }
 .page-heading-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
 .page-heading-row h1 { margin: 0 0 6px; font-size: clamp(24px, 3vw, 30px); font-weight: 600; letter-spacing: -0.02em; }
 .page-desc { margin: 0; color: var(--gray-text); font-size: 14px; line-height: 1.5; }
@@ -2120,13 +2134,22 @@ button:disabled,
     padding: 18px 16px;
   }
 
+  .plan-queue-card {
+    padding: 18px 16px;
+  }
+
   .plan-history-item {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .plan-history-open {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
 
-  .plan-history-item em {
+  .plan-history-open em {
     white-space: normal;
   }
 

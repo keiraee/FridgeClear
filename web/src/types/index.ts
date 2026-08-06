@@ -104,6 +104,7 @@ export interface MealPlanGenerateRequest {
   dislikedIngredients?: string[]
   availableAppliances?: string[]
   usePantryItemIds?: number[]
+  preferredRecipeIds?: number[]
 }
 
 export interface ExpiringIngredient {

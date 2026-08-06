@@ -22,7 +22,8 @@ public final class MealPlanDtos {
             String dietaryPreference,
             List<String> dislikedIngredients,
             List<String> availableAppliances,
-            List<Long> usePantryItemIds
+            List<Long> usePantryItemIds,
+            List<Long> preferredRecipeIds
     ) {}
 
     public record Response(Long mealPlanId, String summary, List<ExpiringIngredient> expiringIngredients,

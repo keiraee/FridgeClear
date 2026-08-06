@@ -105,10 +105,12 @@ public class MealPlanService {
         Long userId = run.getUserId();
         try {
             List<PantryItem> pantry = loadPantry(userId, request);
-            List<Recipe> recipes = recipeRepository.findByStatus(RecipeEnums.Status.ACTIVE, PageRequest.of(0, 80)).getContent();
+            List<Recipe> recipes = new ArrayList<>(recipeRepository.findByStatus(
+                    RecipeEnums.Status.ACTIVE, PageRequest.of(0, 80)).getContent());
             if (recipes.isEmpty()) {
                 throw new IllegalStateException("暂无可用菜谱，请先导入 HowToCook 数据");
             }
+            recipes = ensurePreferredRecipes(recipes, request.preferredRecipeIds());
             Map<Long, List<RecipeIngredient>> ingredientsByRecipe = recipeIngredientRepository.findByRecipeIdIn(
                             recipes.stream().map(Recipe::getId).toList()).stream()
                     .collect(Collectors.groupingBy(RecipeIngredient::getRecipeId));
@@ -407,10 +409,26 @@ public class MealPlanService {
         return new MealPlanDtos.Response(plan.getId(), summary, expiring, itemResponses, shoppingResponses);
     }
 
+    private List<Recipe> ensurePreferredRecipes(List<Recipe> recipes, List<Long> preferredRecipeIds) {
+        if (preferredRecipeIds == null || preferredRecipeIds.isEmpty()) {
+            return recipes;
+        }
+        Set<Long> existing = recipes.stream().map(Recipe::getId).collect(Collectors.toSet());
+        List<Long> missing = preferredRecipeIds.stream().filter(id -> !existing.contains(id)).distinct().toList();
+        if (missing.isEmpty()) {
+            return recipes;
+        }
+        List<Recipe> merged = new ArrayList<>(recipes);
+        recipeRepository.findAllById(missing).stream()
+                .filter(recipe -> recipe.getStatus() == RecipeEnums.Status.ACTIVE)
+                .forEach(merged::add);
+        return merged;
+    }
+
     private String systemPrompt() {
         return "你是 FridgeClear 的备餐规划 AI。只能从候选菜谱中选择 recipeId，必须返回 JSON，不要 Markdown。JSON 格式：" +
                 "{summary:string,items:[{planDate:yyyy-MM-dd,mealType:BREAKFAST|LUNCH|DINNER|SNACK,recipeId:number,servings:number,usedIngredients:string[],missingIngredients:string[],reason:string}],shoppingList:[{name:string,quantity:number,unit:string,reason:string}]}。" +
-                "优先使用临近过期库存，遵守用户忌口、设备和烹饪时长。";
+                "优先使用临近过期库存，遵守用户忌口、设备和烹饪时长。若 constraints 含 preferredRecipeIds，应尽量把这些菜谱纳入计划。";
     }
 
     private String userPrompt(MealPlanDtos.GenerateRequest request, List<PantryItem> pantry, List<Recipe> recipes,

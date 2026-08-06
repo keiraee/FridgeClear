@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRecipesStore } from '../stores/recipes'
+import { useMealPlanQueueStore } from '../stores/mealPlanQueue'
 import type { RecipeDetail, RecipeIngredient } from '../types'
 import {
   difficultyStars,
@@ -18,6 +19,7 @@ defineOptions({ name: 'RecipeDetail' })
 const route = useRoute()
 const router = useRouter()
 const recipesStore = useRecipesStore()
+const mealPlanQueue = useMealPlanQueueStore()
 
 const recipeId = computed(() => Number(route.params.id))
 const recipe = ref<RecipeDetail | null>(null)
@@ -124,10 +126,13 @@ function goBack() {
 
 function goToPlan() {
   if (recipe.value) {
-    router.push({ path: '/meal-plan', query: { recipeId: String(recipe.value.id) } })
-  } else {
-    router.push('/meal-plan')
+    mealPlanQueue.add({
+      id: recipe.value.id,
+      name: recipe.value.name,
+      coverImageUrl: coverUrl.value,
+    })
   }
+  void router.push('/meal-plan')
 }
 
 onMounted(() => loadDetail())
