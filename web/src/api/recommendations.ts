@@ -1,6 +1,8 @@
 import http from './http'
 import type { ApiResponse } from '../types'
 
+export type RecommendationFilter = 'all' | 'high_match' | 'ready_now'
+
 export interface RecipeMatch {
   recipeId: number
   recipeName: string
@@ -17,6 +19,9 @@ export interface RecipeMatch {
   matchRate: number
   matchedIngredients: string[]
   missingIngredients: string[]
+  expiringMatchedIngredients: string[]
+  expiringMatchedCount: number
+  readyToCook: boolean
 }
 
 export interface RecipeMatchResponse {
@@ -24,9 +29,9 @@ export interface RecipeMatchResponse {
   recipes: RecipeMatch[]
 }
 
-export async function getRecommendedRecipes(limit = 8) {
+export async function getRecommendedRecipes(limit = 8, filter: RecommendationFilter = 'ready_now') {
   const response = await http.get<ApiResponse<RecipeMatchResponse>>('/recommendations/recipes', {
-    params: { limit },
+    params: { limit, filter },
     timeout: 60000,
   })
   return response.data.data

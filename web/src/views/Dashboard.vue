@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import PantryStatus from '../components/PantryStatus.vue'
 import RecipeCard from '../components/RecipeCard.vue'
-import { getRecommendedRecipes } from '../api/recommendations'
+import { getRecommendedRecipes, type RecommendationFilter } from '../api/recommendations'
 import { useAuthStore } from '../stores/auth'
 import { usePantryStore } from '../stores/pantry'
 import { CATEGORY_LABELS } from '../stores/recipes'
@@ -20,11 +20,20 @@ const pantryStore = usePantryStore()
 
 const { availableItems, expiringCount, loading: loadingPantry, error: pantryError } = storeToRefs(pantryStore)
 
+const FILTER_ORDER: RecommendationFilter[] = ['ready_now', 'high_match', 'all']
+
 const recipes = ref<RecipeSummary[]>([])
 const loadingRecipes = ref(false)
 const recipeError = ref('')
 const pantryIngredientCount = ref(0)
-const emptyReason = ref<'none' | 'no-pantry' | 'no-match' | ''>('')
+const recommendationFilter = ref<RecommendationFilter>('ready_now')
+const emptyReason = ref<'none' | 'no-pantry' | 'no-match' | 'no-filter-match' | ''>('')
+
+const recommendationFilters: { key: RecommendationFilter; label: string; hint: string }[] = [
+  { key: 'ready_now', label: '现在能做', hint: '最多缺 2 样食材，随时可开做' },
+  { key: 'high_match', label: '高匹配', hint: '匹配率 ≥ 60%' },
+  { key: 'all', label: '可尝试', hint: '匹配率 ≥ 40%' },
+]
 
 const mealTypes: { key: string; label: string; icon: IconName }[] = [
   { key: 'BREAKFAST', label: '早餐', icon: 'sun' },
@@ -41,15 +50,19 @@ const pantrySummary = computed(() => ({
 
 const sectionSubtitle = computed(() => {
   if (!auth.isAuthenticated) return '登录后根据你的冰箱库存推荐菜谱'
-  if (pantryIngredientCount.value > 0) {
-    return `已匹配 ${pantryIngredientCount.value} 种库存食材，优先展示高匹配菜谱`
+  const active = recommendationFilters.find((item) => item.key === recommendationFilter.value)
+  if (pantryIngredientCount.value > 0 && active) {
+    return `已识别 ${pantryIngredientCount.value} 种库存食材 · ${active.hint}`
   }
   return '添加库存食材后，可获得更精准的菜谱推荐'
 })
 
 const showEmptyGuide = computed(() => {
   if (!auth.isAuthenticated || loadingRecipes.value) return false
-  return emptyReason.value === 'no-pantry' || emptyReason.value === 'no-match' || (!recipes.value.length && !!recipeError.value)
+  return emptyReason.value === 'no-pantry'
+    || emptyReason.value === 'no-match'
+    || emptyReason.value === 'no-filter-match'
+    || (!recipes.value.length && !!recipeError.value)
 })
 
 function matchToSummary(match: Awaited<ReturnType<typeof getRecommendedRecipes>>['recipes'][number]): RecipeSummary {
@@ -67,24 +80,44 @@ function matchToSummary(match: Awaited<ReturnType<typeof getRecommendedRecipes>>
   }
 }
 
-async function loadRecipes() {
+async function loadRecipes(options?: { smartDefault?: boolean }) {
   if (!auth.isAuthenticated) return
   loadingRecipes.value = true
   recipeError.value = ''
   emptyReason.value = ''
-  try {
-    const result = await getRecommendedRecipes(8)
+
+  const applyResult = (
+    result: Awaited<ReturnType<typeof getRecommendedRecipes>>,
+    filter: RecommendationFilter,
+  ) => {
+    recommendationFilter.value = filter
     pantryIngredientCount.value = result.pantryIngredientCount
     recipes.value = result.recipes.map(matchToSummary)
     if (!recipes.value.length) {
       if (!result.pantryIngredientCount) {
         emptyReason.value = 'no-pantry'
-        recipeError.value = ''
+      } else if (filter !== 'all') {
+        emptyReason.value = 'no-filter-match'
       } else {
         emptyReason.value = 'no-match'
-        recipeError.value = ''
       }
     }
+  }
+
+  try {
+    if (options?.smartDefault) {
+      for (const filter of FILTER_ORDER) {
+        const result = await getRecommendedRecipes(8, filter)
+        if (result.recipes.length > 0 || filter === 'all') {
+          applyResult(result, filter)
+          return
+        }
+      }
+      return
+    }
+
+    const result = await getRecommendedRecipes(8, recommendationFilter.value)
+    applyResult(result, recommendationFilter.value)
   } catch (error) {
     const axiosError = error as { response?: { data?: { message?: string } } }
     recipeError.value = axiosError.response?.data?.message ?? '推荐菜谱加载失败'
@@ -123,12 +156,18 @@ function openRecipe(id: number) {
   router.push({ name: 'recipeDetail', params: { id: String(id) } })
 }
 
+function setRecommendationFilter(filter: RecommendationFilter) {
+  if (recommendationFilter.value === filter) return
+  recommendationFilter.value = filter
+  void loadRecipes()
+}
+
 function handleToggleFavorite(_recipeId: number) {
   // placeholder
 }
 
 onMounted(() => {
-  void loadRecipes()
+  void loadRecipes({ smartDefault: true })
   void loadPantry()
 })
 </script>
@@ -171,6 +210,18 @@ onMounted(() => {
         </button>
       </div>
 
+      <div v-if="auth.isAuthenticated" class="filter-row recommend-filters">
+        <button
+          v-for="item in recommendationFilters"
+          :key="item.key"
+          type="button"
+          :class="{ active: recommendationFilter === item.key }"
+          @click="setRecommendationFilter(item.key)"
+        >
+          {{ item.label }}
+        </button>
+      </div>
+
       <p v-if="loadingRecipes" class="loading-copy">正在根据库存匹配菜谱…</p>
       <p v-else-if="!auth.isAuthenticated" class="empty-copy">登录后即可查看个性化推荐</p>
       <p v-else-if="recipeError && !showEmptyGuide" class="error-copy">{{ recipeError }}</p>
@@ -192,11 +243,19 @@ onMounted(() => {
             <button class="secondary-btn" type="button" @click="goToRecipes()">浏览全部菜谱</button>
           </div>
         </template>
+        <template v-else-if="emptyReason === 'no-filter-match'">
+          <h3>当前筛选下暂无菜谱</h3>
+          <p>试试切换到「可尝试」，或再补充一些库存食材。</p>
+          <div class="recommend-empty-actions">
+            <button class="cta-primary" type="button" @click="setRecommendationFilter('all')">查看可尝试菜谱</button>
+            <button class="secondary-btn" type="button" @click="goToPantry">补充库存</button>
+          </div>
+        </template>
         <template v-else>
           <h3>推荐暂时不可用</h3>
           <p>{{ recipeError || '请稍后重试，或先浏览全部菜谱。' }}</p>
           <div class="recommend-empty-actions">
-            <button class="cta-primary" type="button" @click="loadRecipes">重试</button>
+            <button class="cta-primary" type="button" @click="() => loadRecipes()">重试</button>
             <button class="secondary-btn" type="button" @click="goToRecipes()">浏览全部菜谱</button>
           </div>
         </template>
@@ -237,7 +296,7 @@ onMounted(() => {
     <section class="ai-strip">
       <div class="strip-text">
         <p class="overline">YOUR PERSONAL AI CHEF</p>
-        <h2>冰箱里有什么，<br /><em>今晚就吃什么。</em></h2>
+        <h2>冰箱里有什么，<br /><em>这顿就做什么。</em></h2>
         <p class="strip-desc">
           输入库存、人数和忌口，FridgeClear 会帮你安排一份真正用得上的计划。
         </p>
@@ -251,6 +310,10 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.recommend-filters {
+  margin-bottom: 20px;
+}
+
 .section-subtitle {
   margin: 8px 0 0;
   color: var(--gray-text);

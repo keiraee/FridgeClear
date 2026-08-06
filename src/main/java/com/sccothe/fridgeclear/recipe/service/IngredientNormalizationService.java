@@ -11,13 +11,7 @@ import java.util.*;
 
 @Service
 public class IngredientNormalizationService {
-    private static final Map<String, String> COMMON_ALIASES = Map.ofEntries(
-            Map.entry("西红柿", "番茄"), Map.entry("蕃茄", "番茄"),
-            Map.entry("马铃薯", "土豆"), Map.entry("洋芋", "土豆"),
-            Map.entry("小葱", "葱"), Map.entry("大葱", "葱"), Map.entry("香葱", "葱"),
-            Map.entry("大蒜", "蒜"), Map.entry("蒜瓣", "蒜"),
-            Map.entry("生姜", "姜"), Map.entry("食盐", "盐"), Map.entry("酱油", "生抽")
-    );
+    private static final Map<String, String> COMMON_ALIASES = IngredientAliasCatalog.COMMON;
 
     private final IngredientRepository ingredientRepository;
     private final IngredientAliasRepository aliasRepository;

@@ -29,9 +29,10 @@ public class RecipeRecommendationController {
     @Operation(summary = "根据库存推荐菜谱")
     public ApiResponse<RecommendationDtos.RecipeMatchResponse> recipes(
             @Parameter(description = "最多返回数量，范围 1-50") @RequestParam(defaultValue = "20") int limit,
+            @Parameter(description = "筛选：all | high_match | ready_now（兼容 cook_tonight）") @RequestParam(defaultValue = "all") String filter,
             HttpServletRequest request) {
         Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         String requestId = value == null ? "req_" + UUID.randomUUID() : value.toString();
-        return ApiResponse.success(service.recommend(limit), requestId);
+        return ApiResponse.success(service.recommend(limit, RecommendationFilter.fromParam(filter)), requestId);
     }
 }

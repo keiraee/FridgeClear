@@ -23,7 +23,10 @@ public final class RecommendationDtos {
             int missingIngredientCount,
             int matchRate,
             List<String> matchedIngredients,
-            List<String> missingIngredients
+            List<String> missingIngredients,
+            List<String> expiringMatchedIngredients,
+            int expiringMatchedCount,
+            boolean readyToCook
     ) {
     }
 

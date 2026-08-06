@@ -140,7 +140,7 @@ watch(
       <div>
         <p class="overline">RECIPE LIBRARY</p>
         <h1>菜谱</h1>
-        <p class="page-desc">从 HowToCook 菜谱库中找到下一道想做的菜。每次加载 {{ RECIPES_PAGE_SIZE }} 道，减轻等待时间。</p>
+        <p class="page-desc">浏览菜谱库，找到下一道想做的菜。每次加载 {{ RECIPES_PAGE_SIZE }} 道，减轻等待时间。</p>
       </div>
     </section>
 

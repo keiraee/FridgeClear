@@ -257,6 +257,29 @@ GET /api/v1/recipes/{id}
 }
 ```
 
+### 4.3 库存推荐菜谱
+
+```http
+GET /api/v1/recommendations/recipes
+```
+
+查询参数：
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `limit` | int | 否 | 返回数量，默认 20，范围 1-50 |
+| `filter` | string | 否 | `ready_now`（缺料 ≤ 2，首页默认；兼容 `cook_tonight`）/ `high_match`（≥ 60%）/ `all`（可尝试，≥ 40%） |
+
+排序规则：匹配率降序 → 临期食材命中数降序 → 缺料数升序 → 菜名升序。
+
+响应 `data.recipes[]` 字段补充：
+
+| 字段 | 说明 |
+|---|---|
+| `expiringMatchedIngredients` | 命中且来自临期库存的食材名 |
+| `expiringMatchedCount` | 临期命中数量 |
+| `readyToCook` | 是否满足「现在能做」（缺料 ≤ 2） |
+
 ## 5. AI 备餐计划 API
 
 ### 5.1 生成备餐计划

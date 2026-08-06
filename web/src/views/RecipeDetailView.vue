@@ -78,12 +78,6 @@ const ingredientGroups = computed(() => {
     .map((role) => ({ role, label: ROLE_LABELS[role], items: grouped.get(role)! }))
 })
 
-const sourceLabel = computed(() => {
-  const source = recipe.value?.source
-  if (!source) return ''
-  return source.path || source.repository
-})
-
 function formatQuantity(item: RecipeIngredient) {
   if (item.rawQuantity) return item.rawQuantity
   const min = item.quantityMin
@@ -216,21 +210,6 @@ watch(recipeId, () => loadDetail())
             <img :src="image.url" :alt="image.alt" loading="lazy" />
           </figure>
         </div>
-      </section>
-
-      <section v-if="sourceLabel" class="detail-section detail-source">
-        <h2>来源</h2>
-        <p>
-          本菜谱来自
-          <a
-            v-if="recipe.source?.repository"
-            :href="`https://github.com/${recipe.source.repository}`"
-            target="_blank"
-            rel="noopener noreferrer"
-          >HowToCook</a>
-          <template v-else>HowToCook</template>
-          · {{ sourceLabel }}
-        </p>
       </section>
     </template>
   </main>
@@ -467,23 +446,6 @@ watch(recipeId, () => loadDetail())
   margin: 4px 0 0;
   line-height: 1.65;
   color: var(--gray-text);
-}
-
-.detail-source p {
-  margin: 0;
-  color: var(--gray-text);
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.detail-source a {
-  color: var(--light-orange);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.detail-source a:hover {
-  text-decoration: underline;
 }
 
 @media (max-width: 768px) {
