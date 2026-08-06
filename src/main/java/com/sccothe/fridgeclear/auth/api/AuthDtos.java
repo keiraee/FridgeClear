@@ -11,7 +11,7 @@ public final class AuthDtos {
     @Schema(name = "RegisterRequest", description = "用户注册请求")
     public record RegisterRequest(
             @NotBlank @Email @Size(max = 190) String email,
-            @NotBlank @Size(min = 8, max = 72) String password,
+            @NotBlank @Size(min = 8, max = 72, message = "长度需在 8–72 位之间") String password,
             @NotBlank @Size(max = 64) String nickname
     ) {}
 
