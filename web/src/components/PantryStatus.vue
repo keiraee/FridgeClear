@@ -1,25 +1,51 @@
 <script setup lang="ts">
+import type { PantryItem } from '../types'
+import { formatExpireLabel } from '../utils/pantry'
+
 defineProps<{
   totalItems: number
-  expiringSoon: number
   recipesAvailable: number
+  expiringItems: PantryItem[]
+}>()
+
+const emit = defineEmits<{
+  goPantry: []
+  goMealPlan: []
 }>()
 </script>
 
 <template>
-  <div class="hero-status">
-    <h3>冰箱库存概览</h3>
-    <div class="status-stat">
-      <span class="stat-label">库存食材</span>
-      <span class="stat-value">{{ totalItems }} <span class="stat-unit">种</span></span>
+  <section class="home-pantry-bar">
+    <div class="home-pantry-top">
+      <div class="home-pantry-summary">
+        <h1 class="home-title">今天吃什么</h1>
+        <p class="home-subtitle">
+          库存 {{ totalItems }} 种
+          <template v-if="recipesAvailable > 0"> · 可做 {{ recipesAvailable }} 道菜</template>
+        </p>
+      </div>
+      <div class="home-pantry-actions">
+        <button class="cta-primary" type="button" @click="emit('goMealPlan')">
+          用现有食材规划本周
+        </button>
+        <button class="secondary-btn" type="button" @click="emit('goPantry')">
+          管理库存
+        </button>
+      </div>
     </div>
-    <div class="status-stat">
-      <span class="stat-label">即将过期</span>
-      <span class="stat-value urgent">{{ expiringSoon }} <span class="stat-unit">种</span></span>
+
+    <div v-if="expiringItems.length" class="expiring-strip">
+      <span class="expiring-strip-label">临期优先</span>
+      <div class="expiring-chips" role="list">
+        <span
+          v-for="item in expiringItems"
+          :key="item.id"
+          class="expiring-chip"
+          role="listitem"
+        >
+          {{ formatExpireLabel(item) }}
+        </span>
+      </div>
     </div>
-    <div class="status-stat">
-      <span class="stat-label">可做菜谱</span>
-      <span class="stat-value ready">{{ recipesAvailable }} <span class="stat-unit">道</span></span>
-    </div>
-  </div>
+  </section>
 </template>

@@ -4,7 +4,10 @@ import { storeToRefs } from 'pinia'
 import { usePantryStore } from '../stores/pantry'
 import type { PantryItem } from '../types'
 import type { PantryItemPayload } from '../api/pantry'
+import { formatExpireDetail } from '../utils/pantry'
 import FcIcon from '../components/FcIcon.vue'
+import LoadingWait from '../components/LoadingWait.vue'
+import { PANTRY_LOADING_STAGES } from '../composables/useElapsedTimer'
 
 defineOptions({ name: 'Pantry' })
 
@@ -98,9 +101,8 @@ onMounted(loadItems)
   <main class="page-main pantry-page">
     <section class="page-heading-row">
       <div>
-        <p class="overline">MY PANTRY</p>
         <h1>我的冰箱</h1>
-        <p class="page-desc">管理库存食材，优先消耗即将过期的食材。</p>
+        <p class="page-desc">登记食材和到期日，首页会按库存推荐菜谱。</p>
       </div>
       <button class="cta-primary" type="button" @click="showForm = !showForm">
         <FcIcon name="plus" :size="16" />
@@ -112,10 +114,7 @@ onMounted(loadItems)
 
     <section v-if="showForm" class="pantry-form-card">
       <div class="section-head compact">
-        <div>
-          <p class="overline">ADD TO PANTRY</p>
-          <h2>添加库存食材</h2>
-        </div>
+        <h2>添加食材</h2>
       </div>
       <form class="pantry-form" @submit.prevent="submit">
         <label>食材名称<input v-model="form.rawName" placeholder="例如：西红柿" /></label>
@@ -139,36 +138,30 @@ onMounted(loadItems)
       </form>
     </section>
 
-    <section class="pantry-summary-row">
-      <div class="mini-stat">
-        <span>当前库存</span>
-        <strong>{{ availableItems.length }}</strong>
-        <small>种食材</small>
-      </div>
-      <div class="mini-stat urgent-stat">
-        <span>临期提醒</span>
-        <strong>{{ expiringItems.length }}</strong>
-        <small>种食材</small>
-      </div>
-    </section>
+    <p v-if="availableItems.length" class="pantry-inline-summary">
+      当前 {{ availableItems.length }} 种食材
+      <template v-if="expiringItems.length"> · {{ expiringItems.length }} 种临期</template>
+    </p>
 
     <section class="pantry-list-card">
       <div class="section-head compact">
-        <div>
-          <p class="overline">YOUR INGREDIENTS</p>
-          <h2>库存清单</h2>
-        </div>
+        <h2>库存清单</h2>
         <span class="list-count">{{ availableItems.length }} 项</span>
       </div>
 
-      <p v-if="loading" class="loading-copy">正在加载库存…</p>
+      <LoadingWait
+        v-if="loading"
+        :active="loading"
+        :stages="PANTRY_LOADING_STAGES"
+        hint="通常 1–3 秒"
+      />
 
       <div v-else-if="!availableItems.length" class="pantry-empty">
         <div class="pantry-empty-icon" aria-hidden="true">
           <FcIcon name="pantry" :size="40" />
         </div>
-        <h3>冰箱还是空的</h3>
-        <p>先添加一些食材，首页就能根据库存为你推荐可做的菜。</p>
+        <h3>还没有登记库存</h3>
+        <p>添加食材和到期日后，首页就能推荐可做的菜。</p>
         <button class="cta-primary" type="button" @click="openAddForm">
           <FcIcon name="plus" :size="16" />
           添加第一件食材
@@ -199,7 +192,7 @@ onMounted(loadItems)
               </div>
               <div class="pantry-meta-item">
                 <span class="pantry-meta-label">到期</span>
-                <span class="pantry-expire">{{ item.expireDate || '未设置' }}</span>
+                <span class="pantry-expire">{{ formatExpireDetail(item.expireDate) }}</span>
               </div>
             </div>
 

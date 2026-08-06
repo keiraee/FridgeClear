@@ -7,7 +7,9 @@ import { archiveMealPlan, generateMealPlan, getMealPlan, updateMealPlanItemStatu
 import { useAuthStore } from '../stores/auth'
 import { useMealPlansStore } from '../stores/mealPlans'
 import MealPlanResult from '../components/MealPlanResult.vue'
+import LoadingWait from '../components/LoadingWait.vue'
 import FcIcon from '../components/FcIcon.vue'
+import { MEAL_PLAN_LOADING_STAGES } from '../composables/useElapsedTimer'
 
 defineOptions({ name: 'MealPlan' })
 
@@ -23,40 +25,14 @@ const config = reactive<MealPlanGenerateRequest>({
 const plan = ref<MealPlan | null>(null)
 const isGenerating = ref(false)
 const generationError = ref('')
-const elapsedSeconds = ref(0)
-let progressTimer: ReturnType<typeof setInterval> | undefined
 let generationAbortController: AbortController | undefined
-
-const generationStage = computed(() => {
-  if (elapsedSeconds.value < 10) return '正在读取你的库存和临期食材…'
-  if (elapsedSeconds.value < 30) return '正在分析菜谱和你的饮食条件…'
-  return '正在等待 AI 模型返回规划结果…'
-})
-
-const elapsedLabel = computed(() => {
-  const minutes = Math.floor(elapsedSeconds.value / 60)
-  const seconds = elapsedSeconds.value % 60
-  return minutes ? `${minutes} 分 ${String(seconds).padStart(2, '0')} 秒` : `${seconds} 秒`
-})
-
-function startProgressTimer() {
-  elapsedSeconds.value = 0
-  progressTimer = setInterval(() => { elapsedSeconds.value += 1 }, 1000)
-}
-
-function stopProgressTimer() {
-  if (progressTimer) clearInterval(progressTimer)
-  progressTimer = undefined
-}
 
 function resetPageState() {
   generationAbortController?.abort()
   generationAbortController = undefined
-  stopProgressTimer()
   isGenerating.value = false
   generationError.value = ''
   plan.value = null
-  elapsedSeconds.value = 0
 }
 
 const mealTypeOptions: { value: MealType; label: string }[] = [
@@ -86,7 +62,6 @@ async function handleGenerate() {
   plan.value = null
   generationAbortController?.abort()
   generationAbortController = new AbortController()
-  startProgressTimer()
 
   try {
     plan.value = await generateMealPlan({ ...config }, { signal: generationAbortController.signal })
@@ -113,7 +88,6 @@ async function handleGenerate() {
     }
   } finally {
     isGenerating.value = false
-    stopProgressTimer()
     generationAbortController = undefined
   }
 }
@@ -198,7 +172,6 @@ onActivated(() => {
 
 onUnmounted(() => {
   generationAbortController?.abort()
-  stopProgressTimer()
 })
 onMounted(() => {
   if (auth.isAuthenticated) void loadHistory()
@@ -209,9 +182,8 @@ onMounted(() => {
   <main class="page-main meal-plan-page">
     <section class="plan-config-section">
       <div class="plan-page-header">
-        <p class="overline">AI MEAL PLANNER</p>
-        <h1>AI 备餐计划</h1>
-        <p class="page-desc">告诉 AI 你的需求和限制，生成一份专属备餐计划。</p>
+        <h1>备餐计划</h1>
+        <p class="page-desc">设置天数、人数和忌口，根据库存生成一周菜单和采购清单。</p>
         <p v-if="focusRecipeId" class="plan-focus-hint">
           已从菜谱详情带入关注菜谱 #{{ focusRecipeId }}。生成计划时 AI 仍会结合库存综合安排，可在结果中查看是否被选入。
         </p>
@@ -331,12 +303,12 @@ onMounted(() => {
       <!-- History -->
       <div class="plan-history-card">
         <div class="section-head compact">
-          <div><p class="overline">SAVED PLANS</p><h2>历史备餐计划</h2></div>
+          <div><h2>历史计划</h2></div>
           <span class="list-count">{{ historyLoading ? '加载中…' : `${historyPlans.length} 份` }}</span>
         </div>
         <div v-if="!historyLoading && !historyPlans.length" class="plan-history-empty">
-          <p>还没有保存的计划。</p>
-          <p class="plan-history-empty-hint">生成后会自动出现在这里，可随时回看。</p>
+          <p>还没有保存的计划</p>
+          <p class="plan-history-empty-hint">生成后会自动保存在这里。</p>
         </div>
         <div v-else class="plan-history-list">
           <button v-for="item in historyPlans" :key="item.id" class="plan-history-item" type="button" :class="{ selected: plan?.id === item.id }" @click="openHistory(item)">
@@ -351,15 +323,13 @@ onMounted(() => {
     <!-- ============ RESULTS ============ -->
     <section class="plan-results-section">
       <!-- Loading -->
-      <div v-if="isGenerating" class="loading-state plan-loading-state">
-        <div class="loading-spinner" />
-        <h3>{{ generationStage }}</h3>
-        <p class="plan-loading-elapsed">已等待 <strong>{{ elapsedLabel }}</strong></p>
-        <p>模型响应通常需要 1–3 分钟，请保持页面打开。</p>
-        <div class="plan-loading-bar" aria-hidden="true">
-          <span class="plan-loading-bar-fill" />
-        </div>
-      </div>
+      <LoadingWait
+        v-if="isGenerating"
+        :active="isGenerating"
+        :stages="MEAL_PLAN_LOADING_STAGES"
+        hint="模型响应通常需要 1–3 分钟，请保持页面打开。"
+        class="plan-loading-state"
+      />
 
       <!-- Error -->
       <div v-else-if="generationError && !plan" class="error-state">
@@ -379,9 +349,9 @@ onMounted(() => {
 
       <!-- Empty (initial) -->
       <div v-else class="empty-state">
-        <div class="empty-icon"><FcIcon name="robot" :size="48" /></div>
-        <h3>准备好开始规划了吗？</h3>
-        <p>配置你的偏好后，点击「生成备餐计划」，AI 会为你量身定制。</p>
+        <div class="empty-icon"><FcIcon name="plan" :size="48" /></div>
+        <h3>填写左侧条件后生成</h3>
+        <p>会根据你的库存和临期食材安排菜单，并列出需要补购的食材。</p>
       </div>
     </section>
   </main>

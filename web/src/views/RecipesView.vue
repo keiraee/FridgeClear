@@ -2,6 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import RecipeCard from '../components/RecipeCard.vue'
+import LoadingWait from '../components/LoadingWait.vue'
+import { RECIPE_LIST_LOADING_STAGES } from '../composables/useElapsedTimer'
 import { getFavoriteRecipes } from '../api/favorites'
 import { CATEGORY_OPTIONS, RECIPES_PAGE_SIZE, useRecipesStore } from '../stores/recipes'
 import { useFavoritesStore } from '../stores/favorites'
@@ -131,10 +133,6 @@ async function handleSearch() {
   await loadFirstPage(true)
 }
 
-function goToPlan() {
-  router.push('/meal-plan')
-}
-
 function openRecipe(id: number) {
   router.push({ name: 'recipeDetail', params: { id: String(id) } })
 }
@@ -180,9 +178,8 @@ watch(
   <main class="page-main recipes-page">
     <section class="page-heading-row">
       <div>
-        <p class="overline">RECIPE LIBRARY</p>
         <h1>菜谱</h1>
-        <p class="page-desc">浏览菜谱库，找到下一道想做的菜。每次加载 {{ RECIPES_PAGE_SIZE }} 道，减轻等待时间。</p>
+        <p class="page-desc">按分类浏览或搜索菜名。</p>
       </div>
     </section>
 
@@ -220,7 +217,12 @@ watch(
       </button>
     </div>
 
-    <p v-if="loading" class="loading-copy">正在加载菜谱…</p>
+    <LoadingWait
+      v-if="loading"
+      :active="loading"
+      :stages="RECIPE_LIST_LOADING_STAGES"
+      hint="首次进入可能需要几秒"
+    />
     <p v-else-if="errorMessage && !recipes.length" class="error-copy">{{ errorMessage }}</p>
     <div v-else-if="!recipes.length" class="recipes-empty">
       <p class="empty-copy">{{ showFavoritesOnly ? '还没有收藏的菜谱，去首页或列表里点 ♡ 收藏吧。' : '没有找到匹配的菜谱。' }}</p>
@@ -236,16 +238,23 @@ watch(
           v-for="recipe in recipes"
           :key="recipe.id"
           :recipe="recipe"
+          variant="list"
           :favorited="favoritesStore.isFavorite(recipe.id)"
-          @add-to-plan="goToPlan"
           @toggle-favorite="toggleFavorite"
           @open="openRecipe"
         />
       </div>
       <p v-if="errorMessage" class="error-copy recipes-inline-error">{{ errorMessage }}</p>
       <div v-if="hasMore" class="recipes-load-more">
-        <button class="secondary-btn" type="button" :disabled="loadingMore" @click="loadMore">
-          {{ loadingMore ? '加载中…' : '加载更多' }}
+        <LoadingWait
+          v-if="loadingMore"
+          :active="loadingMore"
+          :stages="RECIPE_LIST_LOADING_STAGES"
+          hint="正在加载更多菜谱"
+          compact
+        />
+        <button v-else class="secondary-btn" type="button" @click="loadMore">
+          加载更多
         </button>
       </div>
       <p v-else-if="total > RECIPES_PAGE_SIZE" class="empty-copy recipes-end-copy">已加载全部菜谱</p>

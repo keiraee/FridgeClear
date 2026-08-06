@@ -8,6 +8,7 @@ import {
   type ModelItem,
   type SystemAiConfigUpdate,
 } from '../api/admin'
+import LoadingWait from '../components/LoadingWait.vue'
 
 const protocolOptions = [
   { value: 'OPENAI_CHAT', label: 'OpenAI Chat（兼容接口）' },
@@ -124,13 +125,17 @@ onMounted(async () => {
   <main class="page-main admin-ai-config-page">
     <div class="page-heading-row">
       <div>
-        <p class="overline">ADMIN CONSOLE</p>
         <h1>全局 AI 配置</h1>
-        <p class="page-desc">平台统一维护 AI Provider，普通用户无需自行配置 API Key。密钥加密存储，页面仅显示是否已配置。</p>
+        <p class="page-desc">平台统一维护 AI 接口，普通用户无需自行配置密钥。</p>
       </div>
     </div>
 
-    <p v-if="loading" class="loading-copy">正在加载配置…</p>
+    <LoadingWait
+      v-if="loading"
+      :active="loading"
+      hint="通常 1–3 秒"
+      compact
+    />
 
     <section v-else class="pantry-form-card">
       <p class="protocol-note">备餐计划当前仅支持 <strong>OpenAI 兼容接口</strong>（如 OpenAI、DeepSeek、通义等）。请填写兼容 <code>/chat/completions</code> 的 Base URL。</p>

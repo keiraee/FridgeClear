@@ -40,9 +40,8 @@ async function submit() {
 <template>
   <main class="auth-page">
     <section class="auth-card">
-      <p class="overline">FRIDGECLEAR AI</p>
-      <h1>{{ isRegister ? '创建你的账户' : '欢迎回来' }}</h1>
-      <p class="auth-intro">{{ isRegister ? '保存你的冰箱、偏好和 AI 备餐计划。' : '登录后继续管理你的冰箱与备餐计划。' }}</p>
+      <h1>{{ isRegister ? '创建账户' : '登录' }}</h1>
+      <p class="auth-intro">{{ isRegister ? '注册后即可管理库存和备餐计划。' : '登录后继续管理库存和备餐计划。' }}</p>
       <form @submit.prevent="submit">
         <label v-if="isRegister">昵称<input v-model.trim="nickname" autocomplete="nickname" placeholder="例如：小厨师" /></label>
         <label>邮箱<input v-model.trim="email" type="email" autocomplete="email" placeholder="you@example.com" /></label>

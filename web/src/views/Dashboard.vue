@@ -12,6 +12,8 @@ import { CATEGORY_LABELS } from '../stores/recipes'
 import type { IconName } from '../assets/icons/registry'
 import type { RecipeSummary } from '../types'
 import FcIcon from '../components/FcIcon.vue'
+import LoadingWait from '../components/LoadingWait.vue'
+import { RECOMMEND_LOADING_STAGES } from '../composables/useElapsedTimer'
 
 defineOptions({ name: 'Dashboard' })
 
@@ -20,7 +22,7 @@ const auth = useAuthStore()
 const favoritesStore = useFavoritesStore()
 const pantryStore = usePantryStore()
 
-const { availableItems, expiringCount, loading: loadingPantry, error: pantryError } = storeToRefs(pantryStore)
+const { availableItems, loading: loadingPantry, error: pantryError } = storeToRefs(pantryStore)
 
 const FILTER_ORDER: RecommendationFilter[] = ['ready_now', 'high_match', 'all']
 
@@ -32,7 +34,7 @@ const recommendationFilter = ref<RecommendationFilter>('ready_now')
 const emptyReason = ref<'none' | 'no-pantry' | 'no-match' | 'no-filter-match' | ''>('')
 
 const recommendationFilters: { key: RecommendationFilter; label: string; hint: string }[] = [
-  { key: 'ready_now', label: '现在能做', hint: '最多缺 2 样食材，随时可开做' },
+  { key: 'ready_now', label: '现在能做', hint: '最多缺 2 样食材' },
   { key: 'high_match', label: '高匹配', hint: '匹配率 ≥ 60%' },
   { key: 'all', label: '可尝试', hint: '匹配率 ≥ 40%' },
 ]
@@ -44,19 +46,22 @@ const mealTypes: { key: string; label: string; icon: IconName }[] = [
   { key: 'DESSERT', label: '甜点', icon: 'cake' },
 ]
 
+const expiringItems = computed(() =>
+  availableItems.value
+    .filter((item) => item.expiringSoon ?? item.isExpiringSoon)
+    .slice(0, 6),
+)
+
 const pantrySummary = computed(() => ({
   totalItems: availableItems.value.length,
-  expiringSoon: expiringCount.value,
   recipesAvailable: recipes.value.length,
 }))
 
 const sectionSubtitle = computed(() => {
-  if (!auth.isAuthenticated) return '登录后根据你的冰箱库存推荐菜谱'
+  if (!auth.isAuthenticated) return ''
   const active = recommendationFilters.find((item) => item.key === recommendationFilter.value)
-  if (pantryIngredientCount.value > 0 && active) {
-    return `已识别 ${pantryIngredientCount.value} 种库存食材 · ${active.hint}`
-  }
-  return '添加库存食材后，可获得更精准的菜谱推荐'
+  if (pantryIngredientCount.value > 0 && active) return active.hint
+  return '添加库存食材后可获得更精准推荐'
 })
 
 const showEmptyGuide = computed(() => {
@@ -150,8 +155,8 @@ function goToRecipes(category?: string) {
   })
 }
 
-function handleAddToPlan(_recipeId: number) {
-  router.push('/meal-plan')
+function goToLogin() {
+  router.push('/login')
 }
 
 function openRecipe(id: number) {
@@ -175,39 +180,32 @@ onMounted(() => {
 </script>
 
 <template>
-  <main class="page-main">
-    <!-- ============ HERO ============ -->
-    <section class="hero-banner">
-      <div class="hero-copy">
-        <p class="overline">FRIDGECLEAR AI</p>
-        <h1>今天，<br /><em>好好吃饭。</em></h1>
-        <p class="hero-description">
-          从你的冰箱出发，发现刚刚好的菜谱。优先消耗临期食材，也为每一餐保留一点惊喜。
-        </p>
-        <button class="cta-primary" type="button" @click="goToMealPlan">
-          开始规划我的一周
-          <FcIcon name="arrow-right" :size="18" class="cta-arrow" />
-        </button>
-      </div>
-
+  <main class="page-main dashboard-page">
+    <section v-if="auth.isAuthenticated" class="home-header">
       <PantryStatus
         :total-items="loadingPantry ? 0 : pantrySummary.totalItems"
-        :expiring-soon="pantrySummary.expiringSoon"
         :recipes-available="pantrySummary.recipesAvailable"
+        :expiring-items="expiringItems"
+        @go-pantry="goToPantry"
+        @go-meal-plan="goToMealPlan"
       />
       <p v-if="pantryError" class="hero-data-error">{{ pantryError }}</p>
     </section>
 
-    <!-- ============ RECOMMENDED RECIPES ============ -->
+    <section v-else class="home-header home-header--guest">
+      <h1 class="home-title">今天吃什么</h1>
+      <p class="home-subtitle">登录后根据冰箱库存推荐菜谱，并规划一周备餐。</p>
+      <button class="cta-primary" type="button" @click="goToLogin">登录开始使用</button>
+    </section>
+
     <section class="content-section">
-      <div class="section-head">
+      <div class="section-head section-head--tool">
         <div>
-          <p class="overline">PANTRY MATCH</p>
           <h2>根据库存推荐</h2>
-          <p class="section-subtitle">{{ sectionSubtitle }}</p>
+          <p v-if="sectionSubtitle" class="section-subtitle">{{ sectionSubtitle }}</p>
         </div>
         <button class="view-all" type="button" @click="goToRecipes()">
-          查看全部菜谱
+          全部菜谱
           <FcIcon name="arrow-right" :size="16" />
         </button>
       </div>
@@ -224,41 +222,46 @@ onMounted(() => {
         </button>
       </div>
 
-      <p v-if="loadingRecipes" class="loading-copy">正在根据库存匹配菜谱…</p>
+      <LoadingWait
+        v-if="loadingRecipes"
+        :active="loadingRecipes"
+        :stages="RECOMMEND_LOADING_STAGES"
+        hint="通常 5–15 秒内完成"
+      />
       <p v-else-if="!auth.isAuthenticated" class="empty-copy">登录后即可查看个性化推荐</p>
       <p v-else-if="recipeError && !showEmptyGuide" class="error-copy">{{ recipeError }}</p>
 
       <div v-else-if="showEmptyGuide" class="recommend-empty">
         <template v-if="emptyReason === 'no-pantry'">
-          <h3>冰箱还是空的</h3>
-          <p>先添加几样食材，我们就能根据库存推荐可做的菜。</p>
+          <h3>还没有登记库存</h3>
+          <p>添加食材后，会按匹配度推荐可做的菜。</p>
           <div class="recommend-empty-actions">
             <button class="cta-primary" type="button" @click="goToPantry">去添加库存</button>
-            <button class="secondary-btn" type="button" @click="goToRecipes()">先浏览全部菜谱</button>
+            <button class="secondary-btn" type="button" @click="goToRecipes()">先浏览菜谱</button>
           </div>
         </template>
         <template v-else-if="emptyReason === 'no-match'">
-          <h3>暂时没有高匹配菜谱</h3>
-          <p>可以再补充一些常用食材，或直接浏览菜谱库找灵感。</p>
+          <h3>暂无匹配菜谱</h3>
+          <p>可以补充常用食材，或直接浏览菜谱库。</p>
           <div class="recommend-empty-actions">
             <button class="cta-primary" type="button" @click="goToPantry">补充库存</button>
-            <button class="secondary-btn" type="button" @click="goToRecipes()">浏览全部菜谱</button>
+            <button class="secondary-btn" type="button" @click="goToRecipes()">浏览菜谱</button>
           </div>
         </template>
         <template v-else-if="emptyReason === 'no-filter-match'">
-          <h3>当前筛选下暂无菜谱</h3>
-          <p>试试切换到「可尝试」，或再补充一些库存食材。</p>
+          <h3>当前筛选下没有结果</h3>
+          <p>试试「可尝试」，或再补充一些库存。</p>
           <div class="recommend-empty-actions">
-            <button class="cta-primary" type="button" @click="setRecommendationFilter('all')">查看可尝试菜谱</button>
+            <button class="cta-primary" type="button" @click="setRecommendationFilter('all')">查看可尝试</button>
             <button class="secondary-btn" type="button" @click="goToPantry">补充库存</button>
           </div>
         </template>
         <template v-else>
           <h3>推荐暂时不可用</h3>
-          <p>{{ recipeError || '请稍后重试，或先浏览全部菜谱。' }}</p>
+          <p>{{ recipeError || '请稍后重试，或先浏览菜谱。' }}</p>
           <div class="recommend-empty-actions">
             <button class="cta-primary" type="button" @click="() => loadRecipes()">重试</button>
-            <button class="secondary-btn" type="button" @click="goToRecipes()">浏览全部菜谱</button>
+            <button class="secondary-btn" type="button" @click="goToRecipes()">浏览菜谱</button>
           </div>
         </template>
       </div>
@@ -269,19 +272,14 @@ onMounted(() => {
           :key="recipe.id"
           :recipe="recipe"
           :favorited="favoritesStore.isFavorite(recipe.id)"
-          @add-to-plan="handleAddToPlan"
           @toggle-favorite="handleToggleFavorite"
           @open="openRecipe"
         />
       </div>
     </section>
 
-    <!-- ============ PICK YOUR MEAL ============ -->
     <section class="meal-picker">
-      <div>
-        <p class="overline">PICK YOUR MEAL</p>
-        <h2>按分类开始探索</h2>
-      </div>
+      <h2>按分类找菜</h2>
       <div class="meal-pills">
         <button
           v-for="mt in mealTypes"
@@ -294,47 +292,37 @@ onMounted(() => {
         </button>
       </div>
     </section>
-
-    <!-- ============ AI PROMO STRIP ============ -->
-    <section class="ai-strip">
-      <div class="strip-text">
-        <p class="overline">YOUR PERSONAL AI CHEF</p>
-        <h2>冰箱里有什么，<br /><em>这顿就做什么。</em></h2>
-        <p class="strip-desc">
-          输入库存、人数和忌口，FridgeClear 会帮你安排一份真正用得上的计划。
-        </p>
-      </div>
-      <button class="cta-outline" type="button" @click="goToMealPlan">
-        生成我的备餐计划
-        <FcIcon name="arrow-right" :size="18" />
-      </button>
-    </section>
   </main>
 </template>
 
 <style scoped>
+.dashboard-page {
+  padding-top: 32px;
+}
+
 .recommend-filters {
   margin-bottom: 20px;
 }
 
 .section-subtitle {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   color: var(--gray-text);
   font-size: 14px;
   line-height: 1.5;
 }
 
 .recommend-empty {
-  padding: 28px 24px;
+  padding: 24px 20px;
   border: 1px solid var(--sage-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--white);
 }
 
 .recommend-empty h3 {
   margin: 0 0 8px;
   color: var(--deep-green);
-  font-size: 18px;
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .recommend-empty p {
@@ -352,8 +340,12 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .dashboard-page {
+    padding-top: 20px;
+  }
+
   .recommend-empty {
-    padding: 20px 16px;
+    padding: 18px 16px;
   }
 
   .recommend-empty-actions {

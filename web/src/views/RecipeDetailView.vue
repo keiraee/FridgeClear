@@ -10,6 +10,8 @@ import {
   resolveCookingMinutes,
 } from '../utils/recipe'
 import FcIcon from '../components/FcIcon.vue'
+import LoadingWait from '../components/LoadingWait.vue'
+import { RECIPE_DETAIL_LOADING_STAGES } from '../composables/useElapsedTimer'
 
 defineOptions({ name: 'RecipeDetail' })
 
@@ -139,7 +141,12 @@ watch(recipeId, () => loadDetail())
       返回
     </button>
 
-    <p v-if="loading" class="loading-copy">正在加载菜谱详情…</p>
+    <LoadingWait
+      v-if="loading"
+      :active="loading"
+      :stages="RECIPE_DETAIL_LOADING_STAGES"
+      hint="通常 1–5 秒"
+    />
     <p v-else-if="errorMessage && !recipe" class="error-copy">{{ errorMessage }}</p>
 
     <template v-else-if="recipe">
@@ -151,7 +158,6 @@ watch(recipeId, () => loadDetail())
           </div>
         </div>
         <div class="detail-intro">
-          <p class="overline">RECIPE DETAIL</p>
           <h1>{{ recipe.name }}</h1>
           <div class="detail-stat-row">
             <span v-if="recipe.category" class="detail-stat">{{ recipe.category }}</span>
