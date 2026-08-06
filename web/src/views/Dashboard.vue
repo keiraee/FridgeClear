@@ -216,6 +216,7 @@ onMounted(() => {
           :key="item.key"
           type="button"
           :class="{ active: recommendationFilter === item.key }"
+          :aria-pressed="recommendationFilter === item.key"
           @click="setRecommendationFilter(item.key)"
         >
           {{ item.label }}

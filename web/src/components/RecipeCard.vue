@@ -46,6 +46,17 @@ const keyInfo = computed(() => {
 })
 
 const showMatchBadge = computed(() => props.variant === 'compact' && !!matchLabel.value)
+
+function openRecipe() {
+  emit('open', props.recipe.id)
+}
+
+function onImageKeyup(event: KeyboardEvent) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    openRecipe()
+  }
+}
 </script>
 
 <template>
@@ -54,8 +65,8 @@ const showMatchBadge = computed(() => props.variant === 'compact' && !!matchLabe
       class="recipe-image tone-neutral"
       role="button"
       tabindex="0"
-      @click="emit('open', recipe.id)"
-      @keyup.enter="emit('open', recipe.id)"
+      @click="openRecipe"
+      @keyup="onImageKeyup"
     >
       <div class="food-bg" />
       <img
@@ -64,6 +75,7 @@ const showMatchBadge = computed(() => props.variant === 'compact' && !!matchLabe
         :src="recipe.coverImageUrl"
         :alt="recipe.name"
         loading="lazy"
+        @error="($event.target as HTMLImageElement).style.display = 'none'"
       />
       <div v-else class="food-icon" aria-hidden="true">
         <FcIcon :name="fallbackIcon" :size="28" />
@@ -94,8 +106,8 @@ const showMatchBadge = computed(() => props.variant === 'compact' && !!matchLabe
         class="recipe-title-link"
         role="button"
         tabindex="0"
-        @click="emit('open', recipe.id)"
-        @keyup.enter="emit('open', recipe.id)"
+        @click="openRecipe"
+        @keyup="onImageKeyup"
       >
         {{ recipe.name }}
       </h3>

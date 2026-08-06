@@ -3,6 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRecipesStore } from '../stores/recipes'
 import { useMealPlanQueueStore } from '../stores/mealPlanQueue'
+import { useAuthStore } from '../stores/auth'
+import { useFavoritesStore } from '../stores/favorites'
+import { getRecipeMatch, type RecipeMatch } from '../api/recommendations'
 import type { RecipeDetail, RecipeIngredient } from '../types'
 import {
   difficultyStars,
@@ -21,11 +24,17 @@ const route = useRoute()
 const router = useRouter()
 const recipesStore = useRecipesStore()
 const mealPlanQueue = useMealPlanQueueStore()
+const auth = useAuthStore()
+const favoritesStore = useFavoritesStore()
 
 const recipeId = computed(() => Number(route.params.id))
 const recipe = ref<RecipeDetail | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const coverBroken = ref(false)
+const matchInfo = ref<RecipeMatch | null>(null)
+
+const favorited = computed(() => (recipe.value ? favoritesStore.isFavorite(recipe.value.id) : false))
 
 const coverUrl = computed(() => {
   const detail = recipe.value
@@ -34,6 +43,15 @@ const coverUrl = computed(() => {
   const first = detail.media?.[0]
   if (!first) return null
   return recipeMediaUrl(detail.id, first.sortOrder)
+})
+
+const showCoverImage = computed(() => !!coverUrl.value && !coverBroken.value)
+
+const matchLabel = computed(() => {
+  const match = matchInfo.value
+  if (!match) return ''
+  if (match.matchRate >= 95) return '库存可做'
+  return `${match.matchRate}% 匹配`
 })
 
 const stars = computed(() => difficultyStars(recipe.value?.difficultyLevel))
@@ -94,6 +112,18 @@ function formatQuantity(item: RecipeIngredient) {
   return ''
 }
 
+async function loadMatch() {
+  if (!auth.isAuthenticated) {
+    matchInfo.value = null
+    return
+  }
+  try {
+    matchInfo.value = await getRecipeMatch(recipeId.value)
+  } catch {
+    matchInfo.value = null
+  }
+}
+
 async function loadDetail(force = false) {
   if (!Number.isFinite(recipeId.value) || recipeId.value <= 0) {
     loading.value = false
@@ -107,6 +137,8 @@ async function loadDetail(force = false) {
     recipe.value = cached
     errorMessage.value = recipesStore.getDetailError(recipeId.value)
     loading.value = false
+    coverBroken.value = false
+    void loadMatch()
     window.scrollTo({ top: 0, behavior: 'smooth' })
     return
   }
@@ -117,7 +149,17 @@ async function loadDetail(force = false) {
   recipe.value = result
   errorMessage.value = recipesStore.getDetailError(recipeId.value)
   loading.value = false
+  coverBroken.value = false
+  void loadMatch()
   window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function showToast(message: string) {
+  window.dispatchEvent(new CustomEvent('fridgeclear:toast', { detail: message }))
+}
+
+function onCoverError() {
+  coverBroken.value = true
 }
 
 function goBack() {
@@ -132,12 +174,24 @@ function goToPlan() {
       name: recipe.value.name,
       coverImageUrl: coverUrl.value,
     })
+    showToast(`「${recipe.value.name}」已加入待安排菜谱`)
   }
   void router.push('/meal-plan')
 }
 
-onMounted(() => loadDetail())
+function toggleFavorite() {
+  if (!recipe.value) return
+  favoritesStore.toggle(recipe.value.id)
+}
+
+onMounted(() => {
+  void favoritesStore.loadIds()
+  void loadDetail()
+})
 watch(recipeId, () => loadDetail())
+watch(coverUrl, () => {
+  coverBroken.value = false
+})
 </script>
 
 <template>
@@ -157,8 +211,13 @@ watch(recipeId, () => loadDetail())
 
     <template v-else-if="recipe">
       <section class="detail-hero">
-        <div class="detail-cover" :class="{ 'has-image': !!coverUrl }">
-          <img v-if="coverUrl" :src="coverUrl" :alt="recipe.name" />
+        <div class="detail-cover" :class="{ 'has-image': showCoverImage }">
+          <img
+            v-if="showCoverImage"
+            :src="coverUrl!"
+            :alt="recipe.name"
+            @error="onCoverError"
+          />
           <div v-else class="detail-cover-fallback">
             <div class="detail-cover-fallback-icon" aria-hidden="true">
               <FcIcon name="chef" :size="48" />
@@ -168,8 +227,21 @@ watch(recipeId, () => loadDetail())
           </div>
         </div>
         <div class="detail-intro">
-          <h1>{{ recipe.name }}</h1>
+          <div class="detail-title-row">
+            <h1>{{ recipe.name }}</h1>
+            <button
+              class="detail-favorite"
+              type="button"
+              :class="{ 'is-favorited': favorited }"
+              :aria-label="favorited ? '取消收藏' : '收藏菜谱'"
+              :aria-pressed="favorited ? 'true' : 'false'"
+              @click="toggleFavorite"
+            >
+              <FcIcon :name="favorited ? 'heart-filled' : 'heart'" :size="22" />
+            </button>
+          </div>
           <div class="detail-stat-row">
+            <span v-if="matchLabel" class="detail-stat detail-match">{{ matchLabel }}</span>
             <span v-if="recipe.category" class="detail-stat">{{ recipe.category }}</span>
             <span v-if="stars" class="detail-stat detail-stars" :title="recipe.difficultyText ?? '难度'">{{ stars }}</span>
             <span v-if="caloriesLabel" class="detail-stat">{{ caloriesLabel }}</span>
@@ -307,9 +379,44 @@ watch(recipeId, () => loadDetail())
 }
 
 .detail-intro h1 {
-  margin: 8px 0 10px;
+  margin: 0;
   font-size: clamp(28px, 4vw, 40px);
   line-height: 1.15;
+}
+
+.detail-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 10px;
+}
+
+.detail-favorite {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sage-border);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--gray-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.detail-favorite:hover,
+.detail-favorite.is-favorited {
+  color: var(--light-orange);
+  border-color: #f0d4c4;
+  background: var(--orange-light);
+}
+
+.detail-match {
+  color: var(--sage);
+  border-color: #d4e4d6;
+  background: var(--sage-light);
 }
 
 .detail-meta {
@@ -493,10 +600,14 @@ watch(recipeId, () => loadDetail())
     border-radius: var(--radius-md);
   }
 
-  .detail-cover-fallback {
+  .detail-cover-fallback-icon {
     width: 72px;
     height: 72px;
-    font-size: 32px;
+  }
+
+  .detail-cover-fallback-icon :deep(svg) {
+    width: 32px;
+    height: 32px;
   }
 
   .detail-cta {

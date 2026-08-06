@@ -22,6 +22,15 @@ export function formatExpireDetail(expireDate: string | null | undefined): strin
   return `${expireDate}（还剩 ${days} 天）`
 }
 
+export function isExpired(expireDate: string | null | undefined): boolean {
+  const days = daysUntilExpire(expireDate)
+  return days !== null && days < 0
+}
+
+export function isExpiringSoon(item: PantryItem): boolean {
+  return !!(item.expiringSoon ?? item.isExpiringSoon)
+}
+
 export function formatExpireLabel(item: PantryItem): string {
   const name = pantryItemDisplayName(item)
   const days = daysUntilExpire(item.expireDate)

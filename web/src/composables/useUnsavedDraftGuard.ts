@@ -1,5 +1,6 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
+import { showConfirm } from './useConfirm'
 
 const DEFAULT_MESSAGE = '你有未保存的食材填写内容，离开或刷新页面后将会丢失。'
 
@@ -18,16 +19,22 @@ export function useUnsavedDraftGuard(isDirty: () => boolean, message = DEFAULT_M
     window.removeEventListener('beforeunload', beforeUnload)
   })
 
-  onBeforeRouteLeave((_to, _from, next) => {
-    if (!isDirty()) {
-      next()
-      return
-    }
-    if (window.confirm(message)) next()
-    else next(false)
+  onBeforeRouteLeave(() => {
+    if (!isDirty()) return true
+    return showConfirm({
+      title: '放弃未保存内容？',
+      message,
+      confirmLabel: '离开',
+      danger: true,
+    })
   })
 }
 
-export function confirmDiscardDraft(message = DEFAULT_MESSAGE): boolean {
-  return window.confirm(message)
+export async function confirmDiscardDraft(message = DEFAULT_MESSAGE): Promise<boolean> {
+  return showConfirm({
+    title: '放弃未保存内容？',
+    message,
+    confirmLabel: '放弃',
+    danger: true,
+  })
 }

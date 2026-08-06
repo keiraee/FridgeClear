@@ -47,7 +47,9 @@ function navigate(path: string) {
 function submitSearch() {
   const keyword = searchQuery.value.trim()
   if (!auth.isAuthenticated) {
-    void router.push('/login')
+    window.dispatchEvent(new CustomEvent('fridgeclear:login-required', {
+      detail: '登录后可搜索菜谱',
+    }))
     return
   }
   void router.push({
@@ -64,9 +66,9 @@ function signOut() {
 
 <template>
   <header v-if="!hideChrome" class="site-header">
-    <a class="logo" href="#" @click.prevent="navigate('/')">
+    <button class="logo" type="button" @click="navigate('/')">
       <mark>F</mark> FridgeClear
-    </a>
+    </button>
 
     <nav class="top-nav" aria-label="主导航">
       <button
@@ -74,6 +76,7 @@ function signOut() {
         :key="item.path"
         type="button"
         :class="{ active: activeNav === item.path }"
+        :aria-current="activeNav === item.path ? 'page' : undefined"
         @click="navigate(item.path)"
       >
         {{ item.label }}
@@ -116,6 +119,7 @@ function signOut() {
       :key="item.path"
       type="button"
       :class="{ active: activeNav === item.path }"
+      :aria-current="activeNav === item.path ? 'page' : undefined"
       @click="navigate(item.path)"
     >
       <FcIcon :name="item.icon" :size="20" />

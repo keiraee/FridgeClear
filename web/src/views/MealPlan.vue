@@ -12,6 +12,7 @@ import MealPlanResult from '../components/MealPlanResult.vue'
 import LoadingWait from '../components/LoadingWait.vue'
 import FcIcon from '../components/FcIcon.vue'
 import { MEAL_PLAN_LOADING_STAGES } from '../composables/useElapsedTimer'
+import { showConfirm } from '../composables/useConfirm'
 
 defineOptions({ name: 'MealPlan' })
 
@@ -47,7 +48,7 @@ const mealTypeOptions: { value: MealType; label: string }[] = [
   { value: 'BREAKFAST', label: '早餐' },
   { value: 'LUNCH', label: '午餐' },
   { value: 'DINNER', label: '晚餐' },
-  { value: 'SNACK', label: '甜点' },
+  { value: 'SNACK', label: '加餐' },
 ]
 
 const dietOptions = ['', '家常菜', '清淡', '低卡', '高蛋白', '素食']
@@ -133,7 +134,14 @@ async function openHistory(item: { id: number }) {
 }
 
 async function archiveCurrentPlan() {
-  if (!plan.value || !window.confirm('确定删除这份备餐计划吗？')) return
+  if (!plan.value) return
+  const confirmed = await showConfirm({
+    title: '删除备餐计划',
+    message: '确定删除这份备餐计划吗？',
+    confirmLabel: '删除',
+    danger: true,
+  })
+  if (!confirmed) return
   try {
     await archiveMealPlan(plan.value.id)
     plan.value = null
@@ -144,7 +152,13 @@ async function archiveCurrentPlan() {
 
 async function deleteHistoryPlan(item: { id: number; title: string }, event: Event) {
   event.stopPropagation()
-  if (!window.confirm(`确定删除「${item.title}」吗？`)) return
+  const confirmed = await showConfirm({
+    title: '删除备餐计划',
+    message: `确定删除「${item.title}」吗？`,
+    confirmLabel: '删除',
+    danger: true,
+  })
+  if (!confirmed) return
   try {
     await archiveMealPlan(item.id)
     if (plan.value?.id === item.id) plan.value = null

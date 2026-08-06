@@ -4,6 +4,7 @@ import {
   createPantryItem,
   deletePantryItem,
   getPantryItems,
+  updatePantryItem,
   updatePantryStatus,
   type PantryItemPayload,
 } from '../api/pantry'
@@ -89,6 +90,13 @@ export const usePantryStore = defineStore('pantry', () => {
     fetchedAt.value = Date.now()
   }
 
+  async function updateItem(id: number, payload: PantryItemPayload) {
+    const updated = await updatePantryItem(id, payload)
+    items.value = items.value.map((item) => (item.id === id ? updated : item))
+    fetchedAt.value = Date.now()
+    return updated
+  }
+
   return {
     items,
     availableItems,
@@ -102,5 +110,6 @@ export const usePantryStore = defineStore('pantry', () => {
     addItemsBatch,
     markUsed,
     removeItem,
+    updateItem,
   }
 })

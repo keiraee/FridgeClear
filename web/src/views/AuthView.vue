@@ -68,7 +68,10 @@ async function submit() {
   try {
     if (isRegister.value) await auth.signUp({ email: email.value, password: password.value, nickname: nickname.value })
     else await auth.signIn(email.value, password.value)
-    await router.push('/')
+    const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/')
+      ? route.query.redirect
+      : '/'
+    await router.push(redirect)
   } catch (error) {
     errorMessage.value = extractError(error)
   } finally {

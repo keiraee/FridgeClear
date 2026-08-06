@@ -53,7 +53,7 @@ onUnmounted(() => {
 
 <template>
   <Transition name="toast-fade">
-    <div v-if="visible" class="app-toast" role="status">
+    <div v-if="visible" class="app-toast" role="status" aria-live="polite">
       <span>{{ message }}</span>
       <button
         v-if="message.includes('登录')"

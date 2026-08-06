@@ -1,5 +1,6 @@
 package com.sccothe.fridgeclear.recipe.service;
 
+import com.sccothe.fridgeclear.common.api.ResourceNotFoundException;
 import com.sccothe.fridgeclear.auth.service.CurrentUser;
 import com.sccothe.fridgeclear.pantry.domain.PantryItem;
 import com.sccothe.fridgeclear.pantry.domain.PantryItemStatus;
@@ -100,6 +101,39 @@ public class RecipeRecommendationService {
                 .toList();
 
         return new RecommendationDtos.RecipeMatchResponse(pantry.ingredientIds.size(), matches);
+    }
+
+    public RecommendationDtos.RecipeMatch matchRecipe(long recipeId) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new ResourceNotFoundException("菜谱不存在: " + recipeId));
+
+        Long userId = CurrentUser.id();
+        LocalDate today = LocalDate.now();
+
+        Map<String, Long> ingredientIdsByName = ingredientRepository.findAll().stream()
+                .collect(Collectors.toMap(item -> item.getNormalizedName(), item -> item.getId(), (first, ignored) -> first));
+        Map<String, Long> ingredientIdsByAlias = aliasRepository.findAll().stream()
+                .collect(Collectors.toMap(IngredientAlias::getNormalizedAlias, IngredientAlias::getIngredientId, (first, ignored) -> first));
+        Map<Long, Set<String>> namesByIngredientId = buildNamesByIngredientId(ingredientIdsByName, aliasRepository.findAll());
+
+        List<PantryItem> pantryItems = pantryItemRepository.findByUserIdAndStatus(
+                userId, PantryItemStatus.AVAILABLE,
+                org.springframework.data.domain.PageRequest.of(0, 200,
+                        Sort.by("expireDate").ascending().and(Sort.by("id").ascending()))).getContent();
+
+        PantryContext pantry = buildPantryContext(pantryItems, today, ingredientIdsByName, ingredientIdsByAlias, namesByIngredientId);
+        List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipeIdIn(List.of(recipe.getId()))
+                .stream().filter(item -> item.getRecipeId().equals(recipe.getId())).toList();
+        Map<Long, String> coverImageUrls = loadCoverImageUrls(List.of(recipe.getId()));
+
+        return match(
+                recipe,
+                ingredients,
+                pantry,
+                ingredientIdsByName,
+                ingredientIdsByAlias,
+                coverImageUrls.get(recipe.getId()),
+                ingredients.size());
     }
 
     private boolean passesFilter(RecommendationDtos.RecipeMatch match, RecommendationFilter filter) {

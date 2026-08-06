@@ -20,7 +20,7 @@ function mealTypeLabel(type: string): string {
     BREAKFAST: '早餐',
     LUNCH: '午餐',
     DINNER: '晚餐',
-    SNACK: '甜点',
+    SNACK: '加餐',
   }
   return map[type] ?? type
 }

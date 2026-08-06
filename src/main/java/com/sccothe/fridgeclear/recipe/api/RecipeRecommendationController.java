@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,5 +35,15 @@ public class RecipeRecommendationController {
         Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
         String requestId = value == null ? "req_" + UUID.randomUUID() : value.toString();
         return ApiResponse.success(service.recommend(limit, RecommendationFilter.fromParam(filter)), requestId);
+    }
+
+    @GetMapping("/recipes/{recipeId}/match")
+    @Operation(summary = "查询单道菜谱与当前库存的匹配情况")
+    public ApiResponse<RecommendationDtos.RecipeMatch> recipeMatch(
+            @PathVariable long recipeId,
+            HttpServletRequest request) {
+        Object value = request.getAttribute(RequestIdFilter.REQUEST_ID_ATTRIBUTE);
+        String requestId = value == null ? "req_" + UUID.randomUUID() : value.toString();
+        return ApiResponse.success(service.matchRecipe(recipeId), requestId);
     }
 }

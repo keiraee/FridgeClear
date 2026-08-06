@@ -36,3 +36,10 @@ export async function getRecommendedRecipes(limit = 8, filter: RecommendationFil
   })
   return response.data.data
 }
+
+export async function getRecipeMatch(recipeId: number) {
+  const response = await http.get<ApiResponse<RecipeMatch | null>>(`/recommendations/recipes/${recipeId}/match`, {
+    timeout: 30000,
+  })
+  return response.data.data
+}

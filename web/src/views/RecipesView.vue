@@ -228,11 +228,12 @@ watch(
       <button class="cta-primary" type="submit" :disabled="loading">{{ loading ? '搜索中…' : '搜索' }}</button>
     </form>
 
-    <div class="recipes-category-row" role="tablist" aria-label="菜谱分类">
+    <div class="recipes-category-row" role="group" aria-label="菜谱分类">
       <button
         type="button"
         class="category-chip"
         :class="{ selected: showFavoritesOnly }"
+        :aria-pressed="showFavoritesOnly"
         @click="selectFavoritesOnly"
       >
         我的收藏
@@ -241,6 +242,7 @@ watch(
         type="button"
         class="category-chip"
         :class="{ selected: !showFavoritesOnly && !activeCategory }"
+        :aria-pressed="!showFavoritesOnly && !activeCategory"
         @click="showFavoritesOnly = false; selectCategory('')"
       >
         全部分类
@@ -251,6 +253,7 @@ watch(
         type="button"
         class="category-chip"
         :class="{ selected: !showFavoritesOnly && activeCategory === option.value }"
+        :aria-pressed="!showFavoritesOnly && activeCategory === option.value"
         @click="showFavoritesOnly = false; selectCategory(option.value)"
       >
         {{ option.label }}

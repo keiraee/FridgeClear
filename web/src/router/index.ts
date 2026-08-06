@@ -52,7 +52,9 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const token = localStorage.getItem('fridgeclear_access_token')
-  if (to.meta.requiresAuth && !token) return '/login'
+  if (to.meta.requiresAuth && !token) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
   if (to.meta.requiresAdmin) {
     const raw = localStorage.getItem('fridgeclear_user')
     const user = raw ? (JSON.parse(raw) as { role?: string }) : null

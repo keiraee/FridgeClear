@@ -4,11 +4,12 @@ import { storeToRefs } from 'pinia'
 import { usePantryStore } from '../stores/pantry'
 import type { PantryItem } from '../types'
 import type { PantryItemPayload } from '../api/pantry'
-import { formatExpireDetail } from '../utils/pantry'
+import { formatExpireDetail, isExpired, isExpiringSoon } from '../utils/pantry'
 import FcIcon from '../components/FcIcon.vue'
 import LoadingWait from '../components/LoadingWait.vue'
 import { PANTRY_LOADING_STAGES } from '../composables/useElapsedTimer'
 import { confirmDiscardDraft, useUnsavedDraftGuard } from '../composables/useUnsavedDraftGuard'
+import { showConfirm } from '../composables/useConfirm'
 
 defineOptions({ name: 'Pantry' })
 
@@ -28,7 +29,21 @@ const { availableItems, loading, error: storeError } = storeToRefs(pantryStore)
 const submitting = ref(false)
 const showForm = ref(false)
 const formError = ref('')
+const listError = ref('')
 const saveProgress = ref({ current: 0, total: 0 })
+const editingItemId = ref<number | null>(null)
+const editingSubmitting = ref(false)
+
+type EditPantryRow = {
+  rawName: string
+  quantity: number
+  unit: string
+  customUnit: string
+  expireDate: string
+  note: string
+}
+
+const editRow = ref<EditPantryRow | null>(null)
 
 const unitOptions = ['个', '只', '条', '根', '把', '块', '片', '瓣', '盒', '袋', '瓶', '罐', '包', '份', '克', '千克', '毫升', '升', '斤']
 
@@ -55,8 +70,11 @@ const expiringItems = computed(() =>
 
 const sortedItems = computed(() => {
   return [...availableItems.value].sort((a, b) => {
-    const aExpiring = a.expiringSoon ?? a.isExpiringSoon ? 0 : 1
-    const bExpiring = b.expiringSoon ?? b.isExpiringSoon ? 0 : 1
+    const aExpired = isExpired(a.expireDate) ? 0 : 1
+    const bExpired = isExpired(b.expireDate) ? 0 : 1
+    if (aExpired !== bExpired) return aExpired - bExpired
+    const aExpiring = isExpiringSoon(a) ? 0 : 1
+    const bExpiring = isExpiringSoon(b) ? 0 : 1
     if (aExpiring !== bExpiring) return aExpiring - bExpiring
     const aDate = a.expireDate ?? '9999-12-31'
     const bDate = b.expireDate ?? '9999-12-31'
@@ -101,9 +119,9 @@ function openAddForm() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-function toggleForm() {
+async function toggleForm() {
   if (showForm.value) {
-    if (hasDraftChanges.value && !confirmDiscardDraft()) return
+    if (hasDraftChanges.value && !(await confirmDiscardDraft())) return
     resetDraftRows()
     showForm.value = false
     return
@@ -195,19 +213,89 @@ async function submitDraft() {
 }
 
 async function markUsed(item: PantryItem) {
+  listError.value = ''
   try {
     await pantryStore.markUsed(item.id)
+    if (editingItemId.value === item.id) cancelEdit()
+    showToast(`「${displayName(item)}」已标记用完`)
   } catch {
-    formError.value = '更新库存状态失败'
+    listError.value = '更新库存状态失败'
   }
 }
 
 async function remove(item: PantryItem) {
-  if (!window.confirm(`确定删除「${item.rawName}」吗？`)) return
+  const confirmed = await showConfirm({
+    title: '删除食材',
+    message: `确定删除「${item.rawName}」吗？`,
+    confirmLabel: '删除',
+    danger: true,
+  })
+  if (!confirmed) return
+  listError.value = ''
   try {
     await pantryStore.removeItem(item.id)
+    if (editingItemId.value === item.id) cancelEdit()
+    showToast(`已删除「${displayName(item)}」`)
   } catch {
-    formError.value = '删除库存失败'
+    listError.value = '删除库存失败'
+  }
+}
+
+function startEdit(item: PantryItem) {
+  const knownUnit = unitOptions.includes(item.unit ?? '') ? item.unit! : '其他'
+  editingItemId.value = item.id
+  editRow.value = {
+    rawName: item.rawName,
+    quantity: item.quantity ?? 1,
+    unit: knownUnit,
+    customUnit: knownUnit === '其他' ? (item.unit ?? '') : '',
+    expireDate: item.expireDate ?? '',
+    note: item.note ?? '',
+  }
+  listError.value = ''
+}
+
+function cancelEdit() {
+  editingItemId.value = null
+  editRow.value = null
+}
+
+async function submitEdit(item: PantryItem) {
+  const row = editRow.value
+  if (!row) return
+
+  const rawName = row.rawName.trim()
+  const unit = row.unit === '其他' ? row.customUnit.trim() : row.unit.trim()
+  if (!rawName) {
+    listError.value = '请填写食材名称'
+    return
+  }
+  if (!Number.isFinite(row.quantity) || row.quantity <= 0) {
+    listError.value = '请填写有效数量'
+    return
+  }
+  if (!unit) {
+    listError.value = '请选择或填写单位'
+    return
+  }
+
+  editingSubmitting.value = true
+  listError.value = ''
+  try {
+    await pantryStore.updateItem(item.id, {
+      rawName,
+      quantity: row.quantity,
+      unit,
+      expireDate: row.expireDate || undefined,
+      note: row.note.trim() || undefined,
+    })
+    showToast(`已更新「${rawName}」`)
+    cancelEdit()
+  } catch (error) {
+    listError.value = (error as { response?: { data?: { message?: string } } }).response?.data?.message
+      ?? '更新库存失败'
+  } finally {
+    editingSubmitting.value = false
   }
 }
 
@@ -219,8 +307,12 @@ function formatQuantity(item: PantryItem) {
   return `${item.quantity ?? '-'} ${item.unit ?? ''}`.trim()
 }
 
-function isExpiring(item: PantryItem) {
-  return !!(item.expiringSoon ?? item.isExpiringSoon)
+function itemIsExpiring(item: PantryItem) {
+  return isExpiringSoon(item) && !isExpired(item.expireDate)
+}
+
+function itemIsExpired(item: PantryItem) {
+  return isExpired(item.expireDate)
 }
 
 onMounted(loadItems)
@@ -367,36 +459,93 @@ onMounted(loadItems)
       </div>
 
       <div v-else class="pantry-cards">
+        <p v-if="listError" class="error-copy pantry-list-error">{{ listError }}</p>
         <article
           v-for="item in sortedItems"
           :key="item.id"
           class="pantry-card"
-          :class="{ expiring: isExpiring(item) }"
+          :class="{
+            expiring: itemIsExpiring(item),
+            expired: itemIsExpired(item),
+          }"
         >
-          <div v-if="isExpiring(item)" class="pantry-card-accent" aria-hidden="true" />
+          <div
+            v-if="itemIsExpired(item) || itemIsExpiring(item)"
+            class="pantry-card-accent"
+            :class="{ 'pantry-card-accent--expired': itemIsExpired(item) }"
+            aria-hidden="true"
+          />
 
           <div class="pantry-card-body">
-            <div class="pantry-card-main">
-              <div class="pantry-card-info">
-                <h3 class="pantry-item-name">{{ displayName(item) }}</h3>
-                <p v-if="item.rawName !== displayName(item)" class="pantry-item-alias">{{ item.rawName }}</p>
-                <p class="pantry-item-facts">
-                  <span>{{ formatQuantity(item) }}</span>
-                  <span class="pantry-fact-sep" aria-hidden="true">·</span>
-                  <span class="pantry-item-expire" :class="{ urgent: isExpiring(item) }">
-                    {{ formatExpireDetail(item.expireDate) }}
-                  </span>
-                </p>
-                <p v-if="item.note" class="pantry-note">{{ item.note }}</p>
+            <template v-if="editingItemId === item.id && editRow">
+              <form class="pantry-edit-form" @submit.prevent="submitEdit(item)">
+                <label>
+                  <span class="pantry-draft-label">食材名称</span>
+                  <input v-model="editRow.rawName" required />
+                </label>
+                <div class="pantry-edit-inline">
+                  <label>
+                    <span class="pantry-draft-label">数量</span>
+                    <input v-model.number="editRow.quantity" type="number" min="0.001" step="any" required />
+                  </label>
+                  <label>
+                    <span class="pantry-draft-label">单位</span>
+                    <select v-model="editRow.unit">
+                      <option v-for="unit in unitOptions" :key="unit" :value="unit">{{ unit }}</option>
+                      <option value="其他">其他</option>
+                    </select>
+                  </label>
+                </div>
+                <input
+                  v-if="editRow.unit === '其他'"
+                  v-model="editRow.customUnit"
+                  placeholder="自定义单位"
+                />
+                <label>
+                  <span class="pantry-draft-label">到期</span>
+                  <input v-model="editRow.expireDate" type="date" />
+                </label>
+                <label>
+                  <span class="pantry-draft-label">备注</span>
+                  <input v-model="editRow.note" placeholder="可选" />
+                </label>
+                <div class="pantry-actions">
+                  <button class="secondary-btn" type="button" :disabled="editingSubmitting" @click="cancelEdit">取消</button>
+                  <button class="cta-primary" type="submit" :disabled="editingSubmitting">
+                    {{ editingSubmitting ? '保存中…' : '保存' }}
+                  </button>
+                </div>
+              </form>
+            </template>
+
+            <template v-else>
+              <div class="pantry-card-main">
+                <div class="pantry-card-info">
+                  <h3 class="pantry-item-name">{{ displayName(item) }}</h3>
+                  <p v-if="item.rawName !== displayName(item)" class="pantry-item-alias">{{ item.rawName }}</p>
+                  <p class="pantry-item-facts">
+                    <span>{{ formatQuantity(item) }}</span>
+                    <span class="pantry-fact-sep" aria-hidden="true">·</span>
+                    <span
+                      class="pantry-item-expire"
+                      :class="{ urgent: itemIsExpiring(item), expired: itemIsExpired(item) }"
+                    >
+                      {{ formatExpireDetail(item.expireDate) }}
+                    </span>
+                  </p>
+                  <p v-if="item.note" class="pantry-note">{{ item.note }}</p>
+                </div>
+
+                <span v-if="itemIsExpired(item)" class="pantry-expired-badge">已过期</span>
+                <span v-else-if="itemIsExpiring(item)" class="pantry-expiring-badge">临期</span>
               </div>
 
-              <span v-if="isExpiring(item)" class="pantry-expiring-badge">临期</span>
-            </div>
-
-            <div class="pantry-actions">
-              <button type="button" class="pantry-action-primary" @click="markUsed(item)">已用完</button>
-              <button type="button" class="pantry-action-danger" @click="remove(item)">删除</button>
-            </div>
+              <div class="pantry-actions">
+                <button type="button" class="pantry-action-secondary" @click="startEdit(item)">编辑</button>
+                <button type="button" class="pantry-action-primary" @click="markUsed(item)">已用完</button>
+                <button type="button" class="pantry-action-danger" @click="remove(item)">删除</button>
+              </div>
+            </template>
           </div>
         </article>
       </div>

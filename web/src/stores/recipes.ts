@@ -13,7 +13,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   CONDIMENT: '调味品',
   DESSERT: '甜点',
   DRINK: '饮品',
-  MEAT_DISH: '肉菜',
+  MEAT_DISH: '荤菜',
   SEMI_FINISHED: '半成品',
   SOUP: '汤羹',
   STAPLE: '主食',

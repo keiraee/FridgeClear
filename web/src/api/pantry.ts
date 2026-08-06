@@ -31,6 +31,11 @@ export async function updatePantryStatus(id: number, status: PantryItemStatus) {
   return response.data.data
 }
 
+export async function updatePantryItem(id: number, payload: PantryItemPayload) {
+  const response = await http.put<ApiResponse<PantryItem>>(`/pantry-items/${id}`, payload)
+  return response.data.data
+}
+
 export async function deletePantryItem(id: number) {
   await http.delete(`/pantry-items/${id}`)
 }

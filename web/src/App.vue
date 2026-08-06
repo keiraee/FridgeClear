@@ -2,6 +2,7 @@
 import PageHeader from './components/PageHeader.vue'
 import PageFooter from './components/PageFooter.vue'
 import AppToast from './components/AppToast.vue'
+import AppConfirmDialog from './components/AppConfirmDialog.vue'
 </script>
 
 <template>
@@ -15,5 +16,6 @@ import AppToast from './components/AppToast.vue'
     </router-view>
     <PageFooter />
     <AppToast />
+    <AppConfirmDialog />
   </div>
 </template>
