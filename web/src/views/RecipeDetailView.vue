@@ -11,6 +11,7 @@ import {
   resolveCookingMinutes,
 } from '../utils/recipe'
 import FcIcon from '../components/FcIcon.vue'
+import RecipeImageSearchLink from '../components/RecipeImageSearchLink.vue'
 import LoadingWait from '../components/LoadingWait.vue'
 import { RECIPE_DETAIL_LOADING_STAGES } from '../composables/useElapsedTimer'
 
@@ -158,8 +159,12 @@ watch(recipeId, () => loadDetail())
       <section class="detail-hero">
         <div class="detail-cover" :class="{ 'has-image': !!coverUrl }">
           <img v-if="coverUrl" :src="coverUrl" :alt="recipe.name" />
-          <div v-else class="detail-cover-fallback" aria-hidden="true">
-            <FcIcon name="chef" :size="48" />
+          <div v-else class="detail-cover-fallback">
+            <div class="detail-cover-fallback-icon" aria-hidden="true">
+              <FcIcon name="chef" :size="48" />
+            </div>
+            <p class="detail-cover-empty-hint">本站暂无成品图</p>
+            <RecipeImageSearchLink :recipe-name="recipe.name" />
           </div>
         </div>
         <div class="detail-intro">
@@ -273,6 +278,18 @@ watch(recipeId, () => loadDetail())
 }
 
 .detail-cover-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.detail-cover-fallback-icon {
   width: 96px;
   height: 96px;
   display: grid;
@@ -281,6 +298,12 @@ watch(recipeId, () => loadDetail())
   background: rgba(255, 255, 255, 0.45);
   border: 3px solid rgba(255, 255, 255, 0.55);
   color: var(--sage);
+}
+
+.detail-cover-empty-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--gray-text);
 }
 
 .detail-intro h1 {
