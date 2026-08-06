@@ -17,9 +17,13 @@ MODE="${1:-all}"
 
 SSH_OPTS=(-o StrictHostKeyChecking=accept-new)
 
+use_sshpass() {
+  [[ -n "${DEPLOY_SSH_PASSWORD:-}" ]] && command -v sshpass >/dev/null 2>&1
+}
+
 run_ssh() {
-  if [[ -n "${DEPLOY_SSH_PASSWORD:-}" ]] && command -v sshpass >/dev/null 2>&1; then
-    sshpass -p "$DEPLOY_SSH_PASSWORD" ssh "${SSH_OPTS[@]}" "$DEPLOY_SERVER" "$@"
+  if use_sshpass; then
+    SSHPASS="$DEPLOY_SSH_PASSWORD" sshpass -e ssh "${SSH_OPTS[@]}" "$DEPLOY_SERVER" "$@"
   else
     ssh "${SSH_OPTS[@]}" "$DEPLOY_SERVER" "$@"
   fi
@@ -35,10 +39,12 @@ run_rsync() {
     rsync_args+=(--delete)
   fi
 
-  if [[ -n "${DEPLOY_SSH_PASSWORD:-}" ]] && command -v sshpass >/dev/null 2>&1; then
-    rsync "${rsync_args[@]}" -e "sshpass -p ${DEPLOY_SSH_PASSWORD} ssh ${SSH_OPTS[*]}" "$src" "$dest"
+  if use_sshpass; then
+    SSHPASS="$DEPLOY_SSH_PASSWORD" rsync "${rsync_args[@]}" \
+      -e "sshpass -e ssh -o StrictHostKeyChecking=accept-new" \
+      "$src" "$dest"
   else
-    rsync "${rsync_args[@]}" -e "ssh ${SSH_OPTS[*]}" "$src" "$dest"
+    rsync "${rsync_args[@]}" -e "ssh -o StrictHostKeyChecking=accept-new" "$src" "$dest"
   fi
 }
 
@@ -74,14 +80,14 @@ if ! command -v rsync >/dev/null 2>&1; then
   exit 1
 fi
 
-run_ssh "command -v rsync >/dev/null 2>&1 || (apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y rsync)"
-
 if [[ -n "${DEPLOY_SSH_PASSWORD:-}" ]] && ! command -v sshpass >/dev/null 2>&1; then
   echo "WARN: DEPLOY_SSH_PASSWORD is set but sshpass not found." >&2
-  echo "      Install: brew install hudochenkov/sshpass/sshpass" >&2
+  echo "      Install: brew install sshpass" >&2
   echo "      Or run: ssh-copy-id $DEPLOY_SERVER" >&2
   exit 1
 fi
+
+run_ssh "command -v rsync >/dev/null 2>&1 || (apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y rsync)"
 
 build_release
 ensure_remote_update_script
