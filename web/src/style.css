@@ -552,12 +552,11 @@ input, select, textarea { font: inherit; }
 .cta-primary:hover { background: #D4713E; }
 .cta-primary:active { transform: scale(0.98); }
 
-.cta-primary .arrow {
-  font-size: 18px;
+.cta-primary .cta-arrow {
   transition: transform 0.2s;
 }
 
-.cta-primary:hover .arrow { transform: translateX(3px); }
+.cta-primary:hover .cta-arrow { transform: translateX(3px); }
 
 /* Fridge status card */
 .hero-status {
@@ -630,6 +629,9 @@ input, select, textarea { font: inherit; }
 }
 
 .view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 0;
   background: transparent;
   color: var(--sage);
@@ -916,6 +918,9 @@ button:disabled,
 }
 
 .meal-pills button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
   border: 1px solid var(--sage-border);
   border-radius: 20px;

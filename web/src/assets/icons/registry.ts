@@ -21,6 +21,7 @@ import RiFireLine from '~icons/ri/fire-line'
 import RiFridgeLine from '~icons/ri/fridge-line'
 import RiHeartLine from '~icons/ri/heart-line'
 import RiHomeLine from '~icons/ri/home-line'
+import RiKnifeLine from '~icons/ri/knife-line'
 import RiLightbulbLine from '~icons/ri/lightbulb-line'
 import RiLogoutBoxLine from '~icons/ri/logout-box-line'
 import RiRefreshLine from '~icons/ri/refresh-line'
@@ -30,6 +31,7 @@ import RiSearchLine from '~icons/ri/search-line'
 import RiShoppingCartLine from '~icons/ri/shopping-cart-line'
 import RiSkipForwardLine from '~icons/ri/skip-forward-line'
 import RiSparklingLine from '~icons/ri/sparkling-line'
+import RiSunLine from '~icons/ri/sun-line'
 import RiTimeLine from '~icons/ri/time-line'
 import RiUserLine from '~icons/ri/user-line'
 
@@ -61,6 +63,8 @@ export const ICON_NAMES = [
   'cake',
   'clipboard',
   'skip',
+  'sun',
+  'knife',
 ] as const
 
 export type IconName = (typeof ICON_NAMES)[number]
@@ -94,6 +98,8 @@ export const ICON_COMPONENTS: Record<IconName, Component> = {
   cake: RiCakeLine,
   clipboard: RiClipboardLine,
   skip: RiSkipForwardLine,
+  sun: RiSunLine,
+  knife: RiKnifeLine,
 }
 
 /** 菜谱封面占位轮换 */

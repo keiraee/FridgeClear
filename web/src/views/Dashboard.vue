@@ -8,7 +8,9 @@ import { getRecommendedRecipes } from '../api/recommendations'
 import { useAuthStore } from '../stores/auth'
 import { usePantryStore } from '../stores/pantry'
 import { CATEGORY_LABELS } from '../stores/recipes'
+import type { IconName } from '../assets/icons/registry'
 import type { RecipeSummary } from '../types'
+import FcIcon from '../components/FcIcon.vue'
 
 defineOptions({ name: 'Dashboard' })
 
@@ -24,11 +26,11 @@ const recipeError = ref('')
 const pantryIngredientCount = ref(0)
 const emptyReason = ref<'none' | 'no-pantry' | 'no-match' | ''>('')
 
-const mealTypes = [
-  { key: 'BREAKFAST', label: '☀️ 早餐' },
-  { key: 'STAPLE', label: '🌤️ 主食' },
-  { key: 'MEAT_DISH', label: '🌙 荤菜' },
-  { key: 'DESSERT', label: '🍰 甜点' },
+const mealTypes: { key: string; label: string; icon: IconName }[] = [
+  { key: 'BREAKFAST', label: '早餐', icon: 'sun' },
+  { key: 'STAPLE', label: '主食', icon: 'bowl' },
+  { key: 'MEAT_DISH', label: '荤菜', icon: 'knife' },
+  { key: 'DESSERT', label: '甜点', icon: 'cake' },
 ]
 
 const pantrySummary = computed(() => ({
@@ -142,7 +144,8 @@ onMounted(() => {
           从你的冰箱出发，发现刚刚好的菜谱。优先消耗临期食材，也为每一餐保留一点惊喜。
         </p>
         <button class="cta-primary" type="button" @click="goToMealPlan">
-          开始规划我的一周 <span class="arrow">→</span>
+          开始规划我的一周
+          <FcIcon name="arrow-right" :size="18" class="cta-arrow" />
         </button>
       </div>
 
@@ -162,7 +165,10 @@ onMounted(() => {
           <h2>根据库存推荐</h2>
           <p class="section-subtitle">{{ sectionSubtitle }}</p>
         </div>
-        <button class="view-all" type="button" @click="goToRecipes()">查看全部菜谱 →</button>
+        <button class="view-all" type="button" @click="goToRecipes()">
+          查看全部菜谱
+          <FcIcon name="arrow-right" :size="16" />
+        </button>
       </div>
 
       <p v-if="loadingRecipes" class="loading-copy">正在根据库存匹配菜谱…</p>
@@ -221,6 +227,7 @@ onMounted(() => {
           type="button"
           @click="goToRecipes(mt.key)"
         >
+          <FcIcon :name="mt.icon" :size="16" />
           {{ mt.label }}
         </button>
       </div>
@@ -236,7 +243,8 @@ onMounted(() => {
         </p>
       </div>
       <button class="cta-outline" type="button" @click="goToMealPlan">
-        生成我的备餐计划 →
+        生成我的备餐计划
+        <FcIcon name="arrow-right" :size="18" />
       </button>
     </section>
   </main>
