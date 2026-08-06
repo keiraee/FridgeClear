@@ -32,7 +32,8 @@ const pixelSize = computed(() => (typeof props.size === 'number' ? `${props.size
 .fc-icon {
   display: inline-block;
   flex-shrink: 0;
-  vertical-align: -0.15em;
   color: inherit;
+  line-height: 0;
+  vertical-align: middle;
 }
 </style>
