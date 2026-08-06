@@ -62,6 +62,21 @@ export const usePantryStore = defineStore('pantry', () => {
     return created
   }
 
+  async function addItemsBatch(
+    payloads: PantryItemPayload[],
+    onProgress?: (current: number, total: number) => void,
+  ) {
+    const created: PantryItem[] = []
+    for (let index = 0; index < payloads.length; index += 1) {
+      const item = await createPantryItem(payloads[index]!)
+      created.push(item)
+      onProgress?.(index + 1, payloads.length)
+    }
+    items.value = [...created, ...items.value]
+    fetchedAt.value = Date.now()
+    return created
+  }
+
   async function markUsed(id: number) {
     await updatePantryStatus(id, 'USED_UP')
     items.value = items.value.filter((item) => item.id !== id)
@@ -84,6 +99,7 @@ export const usePantryStore = defineStore('pantry', () => {
     invalidate,
     reset,
     addItem,
+    addItemsBatch,
     markUsed,
     removeItem,
   }
