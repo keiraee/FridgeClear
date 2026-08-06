@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { currentUser, login, register, type AuthRequest, type UserResponse } from '../api/auth'
+import { useFavoritesStore } from './favorites'
 import { useMealPlansStore } from './mealPlans'
 import { usePantryStore } from './pantry'
 import { useRecipesStore } from './recipes'
@@ -31,16 +32,21 @@ export const useAuthStore = defineStore('auth', () => {
   async function signIn(email: string, password: string) {
     const data = await login({ email, password })
     saveAuth(data.accessToken, data.user)
+    await useFavoritesStore().loadIds()
   }
 
   async function signUp(payload: AuthRequest) {
     const data = await register(payload)
     saveAuth(data.accessToken, data.user)
+    await useFavoritesStore().loadIds()
   }
 
   async function restore() {
     if (!token.value) return
-    try { saveAuth(token.value, await currentUser()) }
+    try {
+      saveAuth(token.value, await currentUser())
+      await useFavoritesStore().loadIds()
+    }
     catch { signOut() }
   }
 
@@ -52,6 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
     usePantryStore().reset()
     useRecipesStore().reset()
     useMealPlansStore().reset()
+    useFavoritesStore().reset()
   }
 
   window.addEventListener('fridgeclear:unauthorized', () => {

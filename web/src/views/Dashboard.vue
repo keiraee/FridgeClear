@@ -6,6 +6,7 @@ import PantryStatus from '../components/PantryStatus.vue'
 import RecipeCard from '../components/RecipeCard.vue'
 import { getRecommendedRecipes, type RecommendationFilter } from '../api/recommendations'
 import { useAuthStore } from '../stores/auth'
+import { useFavoritesStore } from '../stores/favorites'
 import { usePantryStore } from '../stores/pantry'
 import { CATEGORY_LABELS } from '../stores/recipes'
 import type { IconName } from '../assets/icons/registry'
@@ -16,6 +17,7 @@ defineOptions({ name: 'Dashboard' })
 
 const router = useRouter()
 const auth = useAuthStore()
+const favoritesStore = useFavoritesStore()
 const pantryStore = usePantryStore()
 
 const { availableItems, expiringCount, loading: loadingPantry, error: pantryError } = storeToRefs(pantryStore)
@@ -162,8 +164,8 @@ function setRecommendationFilter(filter: RecommendationFilter) {
   void loadRecipes()
 }
 
-function handleToggleFavorite(_recipeId: number) {
-  // placeholder
+function handleToggleFavorite(recipeId: number) {
+  void favoritesStore.toggle(recipeId)
 }
 
 onMounted(() => {
@@ -266,6 +268,7 @@ onMounted(() => {
           v-for="recipe in recipes"
           :key="recipe.id"
           :recipe="recipe"
+          :favorited="favoritesStore.isFavorite(recipe.id)"
           @add-to-plan="handleAddToPlan"
           @toggle-favorite="handleToggleFavorite"
           @open="openRecipe"

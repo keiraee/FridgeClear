@@ -13,6 +13,7 @@ import {
 
 const props = defineProps<{
   recipe: RecipeSummary
+  favorited?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -68,11 +69,13 @@ const descriptionSnippet = computed(() => truncateText(props.recipe.description)
 
       <button
         class="card-save"
+        :class="{ 'is-favorited': favorited }"
         type="button"
-        aria-label="收藏菜谱"
+        :aria-label="favorited ? '取消收藏' : '收藏菜谱'"
+        :aria-pressed="favorited ? 'true' : 'false'"
         @click.stop="emit('toggleFavorite', recipe.id)"
       >
-        <FcIcon name="heart" :size="18" />
+        <FcIcon :name="favorited ? 'heart-filled' : 'heart'" :size="18" />
       </button>
 
       <span class="match-badge" :class="{ 'full-match': recipe.matchPercent && recipe.matchPercent >= 95 }">

@@ -801,8 +801,14 @@ button:disabled,
   top: 12px;
   right: 12px;
   z-index: 2;
+  box-sizing: border-box;
   width: 34px;
   height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  max-width: 34px;
+  max-height: 34px;
+  aspect-ratio: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -821,10 +827,20 @@ button:disabled,
 .recipe-image .card-save svg {
   display: block;
   flex-shrink: 0;
+  max-width: none;
 }
 
 .recipe-image .card-save:hover {
   background: rgba(31, 54, 48, 0.35);
+}
+
+.recipe-image .card-save.is-favorited {
+  background: rgba(255, 255, 255, 0.92);
+  color: #d45a5a;
+}
+
+.recipe-image .card-save.is-favorited:hover {
+  background: rgba(255, 255, 255, 1);
 }
 
 /* Match badge */
@@ -1830,6 +1846,21 @@ button:disabled,
   }
 
   .recipe-image { height: 140px; }
+  .recipe-image .card-save {
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    max-width: 32px;
+    max-height: 32px;
+  }
+  .recipe-image .card-save .fc-icon,
+  .recipe-image .card-save svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
   .recipe-image .food-icon .fc-icon,
   .recipe-image .food-icon svg { width: 28px; height: 28px; }
 
@@ -1988,7 +2019,7 @@ button:disabled,
   }
 
   /* Minimum tap target 44px */
-  button, select, .chip-btn, .buy-btn {
+  button:not(.card-save), select, .chip-btn, .buy-btn {
     min-height: 44px;
   }
 

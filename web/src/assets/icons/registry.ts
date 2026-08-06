@@ -19,6 +19,7 @@ import RiDeleteBinLine from '~icons/ri/delete-bin-line'
 import RiErrorWarningLine from '~icons/ri/error-warning-line'
 import RiFireLine from '~icons/ri/fire-line'
 import RiFridgeLine from '~icons/ri/fridge-line'
+import RiHeartFill from '~icons/ri/heart-2-fill'
 import RiHeartLine from '~icons/ri/heart-2-line'
 import RiHomeLine from '~icons/ri/home-line'
 import RiKnifeLine from '~icons/ri/knife-line'
@@ -43,6 +44,7 @@ export const ICON_NAMES = [
   'search',
   'back',
   'heart',
+  'heart-filled',
   'plus',
   'check',
   'trash',
@@ -78,6 +80,7 @@ export const ICON_COMPONENTS: Record<IconName, Component> = {
   search: RiSearchLine,
   back: RiArrowLeftLine,
   heart: RiHeartLine,
+  'heart-filled': RiHeartFill,
   plus: RiAddLine,
   check: RiCheckLine,
   trash: RiDeleteBinLine,

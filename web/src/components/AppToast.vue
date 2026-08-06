@@ -25,14 +25,28 @@ function onForbidden(event: Event) {
   show(detail || '无权访问该资源')
 }
 
+function onLoginRequired(event: Event) {
+  const detail = (event as CustomEvent<string>).detail
+  show(detail || '请先登录')
+}
+
+function onToast(event: Event) {
+  const detail = (event as CustomEvent<string>).detail
+  if (detail) show(detail)
+}
+
 onMounted(() => {
   window.addEventListener('fridgeclear:unauthorized', onUnauthorized)
   window.addEventListener('fridgeclear:forbidden', onForbidden)
+  window.addEventListener('fridgeclear:login-required', onLoginRequired)
+  window.addEventListener('fridgeclear:toast', onToast)
 })
 
 onUnmounted(() => {
   window.removeEventListener('fridgeclear:unauthorized', onUnauthorized)
   window.removeEventListener('fridgeclear:forbidden', onForbidden)
+  window.removeEventListener('fridgeclear:login-required', onLoginRequired)
+  window.removeEventListener('fridgeclear:toast', onToast)
   if (hideTimer) clearTimeout(hideTimer)
 })
 </script>

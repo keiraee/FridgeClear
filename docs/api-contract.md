@@ -401,15 +401,57 @@ DELETE /api/v1/meal-plans/{id}
 
 MVP 中建议做软删除，实际更新为 `ARCHIVED`。
 
-## 6. 采购清单 API
+## 6. 菜谱收藏 API
 
-### 6.1 获取采购清单
+> 需要登录。用户维度隔离，与 `user_id` 绑定。
+
+### 6.1 获取收藏菜谱 ID 列表
+
+```http
+GET /api/v1/favorites/ids
+```
+
+响应 `data`：
+
+```json
+{
+  "recipeIds": [12, 45, 88]
+}
+```
+
+### 6.2 分页获取我的收藏菜谱
+
+```http
+GET /api/v1/favorites?page=0&size=20
+```
+
+响应结构与 `GET /recipes` 一致（`items` / `page` / `size` / `total`），按收藏时间倒序。
+
+### 6.3 收藏菜谱
+
+```http
+POST /api/v1/favorites/{recipeId}
+```
+
+幂等：已收藏则直接成功。
+
+### 6.4 取消收藏
+
+```http
+DELETE /api/v1/favorites/{recipeId}
+```
+
+幂等：未收藏则直接成功。
+
+## 7. 采购清单 API
+
+### 7.1 获取采购清单
 
 ```http
 GET /api/v1/meal-plans/{mealPlanId}/shopping-list
 ```
 
-### 6.2 修改采购状态
+### 7.2 修改采购状态
 
 ```http
 PATCH /api/v1/shopping-list-items/{id}/status
@@ -423,7 +465,7 @@ PATCH /api/v1/shopping-list-items/{id}/status
 }
 ```
 
-## 7. 不作为前端 API 的功能
+## 8. 不作为前端 API 的功能
 
 以下功能第一版使用命令行或内部服务完成，不暴露给 Vue：
 
@@ -437,18 +479,18 @@ AI 向量化
 
 原因是这些属于后台管理和数据工程，不属于普通用户操作。
 
-## 8. 前端页面和 API 对应关系
+## 9. 前端页面和 API 对应关系
 
 | 页面 | 主要 API |
 |---|---|
 | Dashboard | `GET /pantry-items`、`GET /meal-plans` |
 | Pantry | `GET/POST/PUT/PATCH/DELETE /pantry-items` |
-| RecipeList | `GET /recipes` |
+| RecipeList | `GET /recipes`、`GET /favorites` |
 | RecipeDetail | `GET /recipes/{id}` |
 | MealPlan | `POST /meal-plans/generate`、`GET /meal-plans/{id}` |
 | ShoppingList | `GET /meal-plans/{id}/shopping-list`、`PATCH /shopping-list-items/{id}/status` |
 
-## 9. API 实现顺序
+## 10. API 实现顺序
 
 1. `GET/POST/PUT/PATCH/DELETE /pantry-items`
 2. `GET /recipes`

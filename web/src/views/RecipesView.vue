@@ -2,7 +2,9 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import RecipeCard from '../components/RecipeCard.vue'
+import { getFavoriteRecipes } from '../api/favorites'
 import { CATEGORY_OPTIONS, RECIPES_PAGE_SIZE, useRecipesStore } from '../stores/recipes'
+import { useFavoritesStore } from '../stores/favorites'
 import type { RecipeSummary } from '../types'
 
 defineOptions({ name: 'Recipes' })
@@ -10,10 +12,12 @@ defineOptions({ name: 'Recipes' })
 const route = useRoute()
 const router = useRouter()
 const recipesStore = useRecipesStore()
+const favoritesStore = useFavoritesStore()
 
 const keyword = ref('')
 const activeKeyword = ref('')
 const activeCategory = ref('')
+const showFavoritesOnly = ref(false)
 const recipes = ref<RecipeSummary[]>([])
 const page = ref(0)
 const total = ref(0)
@@ -44,6 +48,7 @@ function syncCategoryFromRoute() {
 }
 
 function selectCategory(category: string) {
+  showFavoritesOnly.value = false
   activeCategory.value = category
   void router.replace({
     name: 'recipes',
@@ -57,6 +62,23 @@ function selectCategory(category: string) {
 
 async function loadFirstPage(force = false) {
   page.value = 0
+  if (showFavoritesOnly.value) {
+    loading.value = true
+    errorMessage.value = ''
+    try {
+      const result = await getFavoriteRecipes({ page: 0, size: RECIPES_PAGE_SIZE })
+      recipes.value = result.items
+      total.value = result.total
+    } catch {
+      errorMessage.value = '加载收藏失败，请稍后重试'
+      recipes.value = []
+      total.value = 0
+    } finally {
+      loading.value = false
+    }
+    return
+  }
+
   const query = listQuery(0)
   if (!force) {
     const cached = recipesStore.getCachedPage(query)
@@ -82,10 +104,17 @@ async function loadFirstPage(force = false) {
 async function loadMore() {
   if (!hasMore.value || loadingMore.value || loading.value) return
   const nextPage = page.value + 1
-  const query = listQuery(nextPage)
   loadingMore.value = true
   errorMessage.value = ''
   try {
+    if (showFavoritesOnly.value) {
+      const result = await getFavoriteRecipes({ page: nextPage, size: RECIPES_PAGE_SIZE })
+      recipes.value = [...recipes.value, ...result.items]
+      page.value = nextPage
+      total.value = result.total
+      return
+    }
+    const query = listQuery(nextPage)
     const result = await recipesStore.fetchPage(query)
     recipes.value = [...recipes.value, ...result.items]
     page.value = result.page
@@ -97,6 +126,7 @@ async function loadMore() {
 }
 
 async function handleSearch() {
+  showFavoritesOnly.value = false
   activeKeyword.value = keyword.value.trim()
   await loadFirstPage(true)
 }
@@ -112,11 +142,23 @@ function openRecipe(id: number) {
 function resetFilters() {
   keyword.value = ''
   activeKeyword.value = ''
+  showFavoritesOnly.value = false
   selectCategory('')
 }
 
-function toggleFavorite(_id: number) {
-  // 收藏功能下一步接入
+function selectFavoritesOnly() {
+  showFavoritesOnly.value = true
+  activeCategory.value = ''
+  void router.replace({ name: 'recipes', query: { ...route.query, category: undefined } })
+  void loadFirstPage(true)
+}
+
+function toggleFavorite(id: number) {
+  favoritesStore.toggle(id)
+  if (showFavoritesOnly.value && !favoritesStore.isFavorite(id)) {
+    recipes.value = recipes.value.filter((recipe) => recipe.id !== id)
+    total.value = Math.max(0, total.value - 1)
+  }
 }
 
 onMounted(() => {
@@ -153,8 +195,16 @@ watch(
       <button
         type="button"
         class="category-chip"
-        :class="{ selected: !activeCategory }"
-        @click="selectCategory('')"
+        :class="{ selected: showFavoritesOnly }"
+        @click="selectFavoritesOnly"
+      >
+        我的收藏
+      </button>
+      <button
+        type="button"
+        class="category-chip"
+        :class="{ selected: !showFavoritesOnly && !activeCategory }"
+        @click="showFavoritesOnly = false; selectCategory('')"
       >
         全部分类
       </button>
@@ -163,8 +213,8 @@ watch(
         :key="option.value"
         type="button"
         class="category-chip"
-        :class="{ selected: activeCategory === option.value }"
-        @click="selectCategory(option.value)"
+        :class="{ selected: !showFavoritesOnly && activeCategory === option.value }"
+        @click="showFavoritesOnly = false; selectCategory(option.value)"
       >
         {{ option.label }}
       </button>
@@ -173,7 +223,7 @@ watch(
     <p v-if="loading" class="loading-copy">正在加载菜谱…</p>
     <p v-else-if="errorMessage && !recipes.length" class="error-copy">{{ errorMessage }}</p>
     <div v-else-if="!recipes.length" class="recipes-empty">
-      <p class="empty-copy">没有找到匹配的菜谱。</p>
+      <p class="empty-copy">{{ showFavoritesOnly ? '还没有收藏的菜谱，去首页或列表里点 ♡ 收藏吧。' : '没有找到匹配的菜谱。' }}</p>
       <button class="secondary-btn" type="button" @click="resetFilters">
         查看全部菜谱
       </button>
@@ -186,6 +236,7 @@ watch(
           v-for="recipe in recipes"
           :key="recipe.id"
           :recipe="recipe"
+          :favorited="favoritesStore.isFavorite(recipe.id)"
           @add-to-plan="goToPlan"
           @toggle-favorite="toggleFavorite"
           @open="openRecipe"
