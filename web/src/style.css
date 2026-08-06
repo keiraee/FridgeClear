@@ -1363,6 +1363,14 @@ button:disabled,
    ============================================================ */
 .plan-results-section { min-height: 300px; }
 
+.plan-result-empty-hint--mobile {
+  display: none;
+}
+
+.plan-result-empty-hint {
+  margin: 0;
+}
+
 /* Summary card */
 .plan-summary-card {
   display: flex;
@@ -1858,12 +1866,39 @@ button:disabled,
 
   /* Meal plan page */
   .meal-plan-page {
-    grid-template-columns: 1fr;
-    gap: 32px;
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: none;
+    gap: 24px;
+    padding-top: 28px;
   }
 
-  .plan-config-section { order: 1; }
-  .plan-results-section { order: 2; }
+  .plan-config-section {
+    order: 1;
+    width: 100%;
+  }
+
+  .plan-results-section {
+    order: 2;
+    width: 100%;
+    min-height: 0;
+  }
+
+  .plan-results-empty {
+    display: none;
+  }
+
+  .plan-result-empty-hint--desktop {
+    display: none;
+  }
+
+  .plan-result-empty-hint--mobile {
+    display: block;
+  }
+
+  .meal-plan-result-empty {
+    padding: 32px 20px;
+  }
 
   .plan-ingredients {
     grid-template-columns: 1fr;

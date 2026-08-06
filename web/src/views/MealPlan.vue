@@ -347,8 +347,8 @@ onMounted(() => {
         @toggle-shopping-item="handleToggleShoppingItem"
       />
 
-      <!-- Empty (initial) -->
-      <div v-else class="empty-state">
+      <!-- Empty (initial) — desktop only; mobile 已在上方看到表单 -->
+      <div v-else class="empty-state plan-results-empty">
         <div class="empty-icon"><FcIcon name="plan" :size="48" /></div>
         <h3>填写左侧条件后生成</h3>
         <p>会根据你的库存和临期食材安排菜单，并列出需要补购的食材。</p>

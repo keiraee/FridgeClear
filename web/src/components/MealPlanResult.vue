@@ -157,10 +157,11 @@ function openRecipe(recipeId: number) {
   </div>
 
   <!-- Empty state -->
-  <div v-else class="empty-state">
+  <div v-else class="empty-state meal-plan-result-empty">
     <div class="empty-icon"><FcIcon name="clipboard" :size="48" /></div>
     <h3>还没有备餐计划</h3>
-    <p>在左侧填写条件后点击「生成备餐计划」。</p>
+    <p class="plan-result-empty-hint plan-result-empty-hint--desktop">在左侧填写条件后点击「生成备餐计划」。</p>
+    <p class="plan-result-empty-hint plan-result-empty-hint--mobile">在上方填写条件后点击「生成备餐计划」。</p>
   </div>
 </template>
 
