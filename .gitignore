@@ -50,9 +50,12 @@ logs.*
 ### External source data ###
 data/source/HowToCook/
 data/fridgeclear*
+release/
+release.zip
 .env
 .env.*
 !.env.example
+scripts/deploy.env
 
 ### Claude Code ###
 .agents/
