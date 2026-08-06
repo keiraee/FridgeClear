@@ -33,12 +33,12 @@ public class PantryItemService {
     }
 
     @Transactional(readOnly = true)
-    public Page<PantryItemDtos.Response> list(PantryItemStatus status, Pageable pageable) {
+    public com.sccothe.fridgeclear.common.api.PageResponse<PantryItemDtos.Response> list(PantryItemStatus status, Pageable pageable) {
         Long userId = CurrentUser.id();
         Page<PantryItem> items = status == null
                 ? repository.findByUserId(userId, pageable)
                 : repository.findByUserIdAndStatus(userId, status, pageable);
-        return items.map(item -> toResponse(item));
+        return com.sccothe.fridgeclear.common.api.PageResponse.from(items.map(this::toResponse));
     }
 
     public PantryItemDtos.Response create(PantryItemDtos.CreateRequest request) {

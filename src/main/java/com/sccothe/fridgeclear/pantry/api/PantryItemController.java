@@ -1,6 +1,7 @@
 package com.sccothe.fridgeclear.pantry.api;
 
 import com.sccothe.fridgeclear.common.api.ApiResponse;
+import com.sccothe.fridgeclear.common.api.PageResponse;
 import com.sccothe.fridgeclear.common.api.RequestIdFilter;
 import com.sccothe.fridgeclear.pantry.domain.PantryItemStatus;
 import com.sccothe.fridgeclear.pantry.service.PantryItemService;
@@ -38,7 +39,7 @@ public class PantryItemController {
 
     @GetMapping
     @Operation(summary = "获取食材库存")
-    public ApiResponse<?> list(
+    public ApiResponse<PageResponse<PantryItemDtos.Response>> list(
             @RequestParam(required = false) PantryItemStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,

@@ -1,0 +1,16 @@
+spring:
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+
+fridgeclear:
+  auth:
+    jwt-secret: c2VjcmV0LXNlY3JldC1zZWNyZXQtc2VjcmV0LXNlY3JldC1zZWNyZXQ=
+    jwt-expiration-seconds: 3600
+  ai:
+    encryption-key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
+    byok-enabled: false
