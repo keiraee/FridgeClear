@@ -160,7 +160,7 @@ function openRecipe(recipeId: number) {
   <div v-else class="empty-state">
     <div class="empty-icon"><FcIcon name="clipboard" :size="48" /></div>
     <h3>还没有备餐计划</h3>
-    <p>配置你的偏好，让 AI 帮你生成一份专属计划。</p>
+    <p>在左侧填写条件后点击「生成备餐计划」。</p>
   </div>
 </template>
 

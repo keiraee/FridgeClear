@@ -246,7 +246,7 @@ onMounted(loadItems)
       <div class="section-head compact pantry-draft-head">
         <div>
           <h2>批量添加食材</h2>
-          <p class="pantry-draft-subtitle">填写多行后点击保存，会依次提交到服务器。</p>
+          <p class="pantry-draft-subtitle">填写多行后点击保存，会逐条写入冰箱库存。</p>
         </div>
       </div>
 

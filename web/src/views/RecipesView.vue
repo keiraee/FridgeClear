@@ -185,7 +185,7 @@ watch(
 
     <form class="recipe-search-form" @submit.prevent="handleSearch">
       <input v-model="keyword" placeholder="搜索菜名，例如：西红柿" aria-label="搜索菜谱" />
-      <button class="cta-primary" type="submit" :disabled="loading">搜索</button>
+      <button class="cta-primary" type="submit" :disabled="loading">{{ loading ? '搜索中…' : '搜索' }}</button>
     </form>
 
     <div class="recipes-category-row" role="tablist" aria-label="菜谱分类">

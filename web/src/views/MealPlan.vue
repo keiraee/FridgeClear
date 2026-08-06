@@ -289,7 +289,7 @@ onMounted(() => {
             @click="handleGenerate"
           >
             <template v-if="isGenerating">
-              <span class="spinner" /> AI 正在生成计划...
+              <span class="spinner" /> 生成中…
             </template>
             <template v-else>
               <FcIcon name="spark" :size="18" />

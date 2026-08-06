@@ -7,6 +7,11 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const isRegister = computed(() => route.name === 'register')
+
+const submitButtonLabel = computed(() => {
+  if (loading.value) return isRegister.value ? '注册中…' : '登录中…'
+  return isRegister.value ? '注册' : '登录'
+})
 const email = ref('')
 const password = ref('')
 const nickname = ref('')
@@ -15,7 +20,10 @@ const errorMessage = ref('')
 
 function extractError(error: unknown) {
   const response = (error as { response?: { data?: { message?: string } } }).response
-  return response?.data?.message ?? '请求失败，请检查后端服务是否已启动'
+  if (response?.data?.message) return response.data.message
+  return isRegister.value
+    ? '注册失败，请检查网络或稍后重试'
+    : '登录失败，请检查网络或稍后重试'
 }
 
 async function submit() {
@@ -47,7 +55,7 @@ async function submit() {
         <label>邮箱<input v-model.trim="email" type="email" autocomplete="email" placeholder="you@example.com" /></label>
         <label>密码<input v-model="password" type="password" :autocomplete="isRegister ? 'new-password' : 'current-password'" placeholder="至少 6 位密码" /></label>
         <p v-if="errorMessage" class="form-error">{{ errorMessage }}</p>
-        <button class="cta-primary auth-submit" type="submit" :disabled="loading">{{ loading ? '提交中…' : (isRegister ? '注册并开始使用' : '登录') }}</button>
+        <button class="cta-primary auth-submit" type="submit" :disabled="loading">{{ submitButtonLabel }}</button>
       </form>
       <button class="auth-switch" type="button" @click="router.push(isRegister ? '/login' : '/register')">
         {{ isRegister ? '已有账户？去登录' : '还没有账户？立即注册' }}
