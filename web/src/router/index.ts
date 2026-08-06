@@ -39,6 +39,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true },
       component: () => import('../views/AdminAiConfig.vue'),
     },
+    {
+      path: '/admin/access-logs',
+      name: 'adminAccessLogs',
+      meta: { requiresAuth: true, requiresAdmin: true },
+      component: () => import('../views/AdminAccessLogs.vue'),
+    },
     { path: '/login', name: 'login', component: () => import('../views/AuthView.vue') },
     { path: '/register', name: 'register', component: () => import('../views/AuthView.vue') },
   ],

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   fetchSystemAiConfigModels,
   getSystemAiConfig,
@@ -9,6 +10,8 @@ import {
   type SystemAiConfigUpdate,
 } from '../api/admin'
 import LoadingWait from '../components/LoadingWait.vue'
+
+const router = useRouter()
 
 const protocolOptions = [
   { value: 'OPENAI_CHAT', label: 'OpenAI Chat（兼容接口）' },
@@ -127,6 +130,9 @@ onMounted(async () => {
       <div>
         <h1>全局 AI 配置</h1>
         <p class="page-desc">平台统一维护 AI 接口，普通用户无需自行配置密钥。</p>
+      </div>
+      <div class="admin-page-links">
+        <button class="secondary-btn" type="button" @click="router.push('/admin/access-logs')">访问日志</button>
       </div>
     </div>
 

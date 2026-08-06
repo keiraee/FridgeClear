@@ -28,6 +28,7 @@ public class SecurityConfig {
                         .accessDeniedHandler(securityJsonHandlers.accessDeniedHandler()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**", "/api/v1/recipes/*/media/*", "/doc.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**", "/error").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/telemetry/access").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recipes", "/api/v1/recipes/*").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
