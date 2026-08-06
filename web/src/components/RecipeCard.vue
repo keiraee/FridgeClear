@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import FcIcon from './FcIcon.vue'
+import { RECIPE_FALLBACK_ICONS } from '../assets/icons/registry'
+import type { IconName } from '../assets/icons/registry'
 import type { RecipeSummary } from '../types'
 import {
   difficultyStars,
@@ -38,10 +41,7 @@ const toneClass = computed(() => {
   return tones[id]
 })
 
-const foodIcon = computed(() => {
-  const icons = ['🍝', '🍳', '🍤', '🥣']
-  return icons[props.recipe.id % icons.length]
-})
+const fallbackIcon = computed<IconName>(() => RECIPE_FALLBACK_ICONS[props.recipe.id % RECIPE_FALLBACK_ICONS.length]!)
 
 const stars = computed(() => difficultyStars(props.recipe.difficultyLevel))
 const caloriesLabel = computed(() => formatCalories(props.recipe.calories))
@@ -62,14 +62,18 @@ const descriptionSnippet = computed(() => truncateText(props.recipe.description)
         :alt="recipe.name"
         loading="lazy"
       />
-      <div v-else class="food-icon" aria-hidden="true">{{ foodIcon }}</div>
+      <div v-else class="food-icon" aria-hidden="true">
+        <FcIcon :name="fallbackIcon" :size="32" />
+      </div>
 
       <button
         class="card-save"
         type="button"
         aria-label="收藏菜谱"
         @click.stop="emit('toggleFavorite', recipe.id)"
-      >♡</button>
+      >
+        <FcIcon name="heart" :size="18" />
+      </button>
 
       <span class="match-badge" :class="{ 'full-match': recipe.matchPercent && recipe.matchPercent >= 95 }">
         {{ matchLabel }}
@@ -96,7 +100,8 @@ const descriptionSnippet = computed(() => truncateText(props.recipe.description)
       <p v-if="descriptionSnippet" class="recipe-desc">{{ descriptionSnippet }}</p>
 
       <button class="card-action" type="button" @click.stop="emit('addToPlan', recipe.id)">
-        ＋ 加入备餐计划
+        <FcIcon name="plus" :size="14" />
+        加入备餐计划
       </button>
     </div>
   </article>
@@ -105,6 +110,9 @@ const descriptionSnippet = computed(() => truncateText(props.recipe.description)
 <style scoped>
 .recipe-image[role='button'],
 .recipe-title-link {
+  cursor: pointer;
+}
+.recipe-body .card-action {
   cursor: pointer;
 }
 .recipe-title-link {

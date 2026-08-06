@@ -274,8 +274,10 @@ input, select, textarea { font: inherit; }
 }
 
 .pantry-empty-icon {
-  font-size: 40px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sage);
 }
 
 .pantry-empty h3 {
@@ -469,6 +471,9 @@ input, select, textarea { font: inherit; }
 }
 
 .sign-in-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--sage-border);
   border-radius: var(--radius-md);
   padding: 9px 18px;
@@ -726,8 +731,7 @@ input, select, textarea { font: inherit; }
   background: rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(4px);
   border: 3px solid rgba(255, 255, 255, 0.45);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 30px;
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .recipe-real-image {
@@ -879,6 +883,9 @@ button:disabled,
   font-size: 12px;
   font-weight: 600;
   text-align: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: color 0.15s;
 }
 
@@ -1199,7 +1206,11 @@ button:disabled,
   margin-bottom: 20px;
 }
 
-.plan-summary-card .summary-icon { font-size: 28px; }
+.plan-summary-card .summary-icon {
+  display: flex;
+  align-items: center;
+  color: var(--sage);
+}
 .plan-summary-card h3 {
   margin: 0 0 4px;
   font-size: 15px;
@@ -1226,6 +1237,9 @@ button:disabled,
 }
 
 .alert-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
   color: var(--light-orange);
@@ -1294,6 +1308,9 @@ button:disabled,
 }
 
 .plan-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   font-size: 13px;
   color: var(--gray-text);
   margin: 0 0 14px;
@@ -1316,6 +1333,9 @@ button:disabled,
 }
 
 .ing-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -1367,11 +1387,15 @@ button:disabled,
   padding: 24px 28px;
 }
 
-.shopping-section h3 {
+.shopping-section h3,
+.shopping-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
   font-size: 18px;
   font-weight: 700;
   color: var(--deep-green);
-  margin: 0 0 16px;
 }
 
 .shopping-cards {
@@ -1530,7 +1554,15 @@ button:disabled,
 }
 
 .empty-icon,
-.error-icon { font-size: 48px; margin-bottom: 16px; }
+.error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  color: var(--sage);
+}
+
+.error-icon { color: var(--light-orange); }
 
 .empty-state h3,
 .error-state h3 {

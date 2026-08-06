@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import FcIcon from './FcIcon.vue'
 import type { MealPlan, MealPlanItem } from '../types'
 
 const props = defineProps<{
@@ -53,7 +54,7 @@ function openRecipe(recipeId: number) {
   <div v-if="plan" class="plan-result">
     <!-- Summary -->
     <div v-if="plan.summary" class="plan-summary-card">
-      <div class="summary-icon">✨</div>
+      <div class="summary-icon"><FcIcon name="spark" :size="28" /></div>
       <div>
         <h3>AI 规划摘要</h3>
         <p>{{ plan.summary }}</p>
@@ -62,7 +63,7 @@ function openRecipe(recipeId: number) {
 
     <!-- Expiring alerts -->
     <div v-if="plan.expiringIngredients?.length" class="expiring-alerts">
-      <span class="alert-label">⚠️ 优先消耗</span>
+      <span class="alert-label"><FcIcon name="warning" :size="16" /> 优先消耗</span>
       <span v-for="ing in plan.expiringIngredients" :key="ing.pantryItemId" class="alert-chip">
         {{ ing.name }}（{{ ing.expireDate }} 到期）
       </span>
@@ -82,7 +83,9 @@ function openRecipe(recipeId: number) {
               @click="openRecipe(item.recipe.id)"
             >
               <img v-if="recipeCoverUrl(item)" :src="recipeCoverUrl(item)!" :alt="item.recipe.name" loading="lazy" />
-              <span v-else class="plan-recipe-thumb-fallback" aria-hidden="true">🍳</span>
+              <span v-else class="plan-recipe-thumb-fallback" aria-hidden="true">
+                <FcIcon name="chef" :size="28" />
+              </span>
             </button>
             <div class="plan-item-title">
               <div class="plan-item-title-row">
@@ -95,16 +98,16 @@ function openRecipe(recipeId: number) {
             </div>
           </div>
 
-          <p class="plan-reason">💡 {{ item.reason }}</p>
+          <p class="plan-reason"><FcIcon name="lightbulb" :size="14" /> {{ item.reason }}</p>
 
           <div class="plan-ingredients">
             <div class="ingredient-group">
-              <span class="ing-label have">✅ 已有食材</span>
+              <span class="ing-label have"><FcIcon name="check" :size="14" /> 已有食材</span>
               <span v-for="name in item.usedIngredients" :key="name" class="ing-chip have">{{ name }}</span>
               <span v-if="!item.usedIngredients.length" class="ing-empty">无</span>
             </div>
             <div class="ingredient-group">
-              <span class="ing-label missing">🛒 需要购买</span>
+              <span class="ing-label missing"><FcIcon name="cart" :size="14" /> 需要购买</span>
               <span v-for="name in item.missingIngredients" :key="name" class="ing-chip missing">{{ name }}</span>
               <span v-if="!item.missingIngredients.length" class="ing-empty">无</span>
             </div>
@@ -116,9 +119,9 @@ function openRecipe(recipeId: number) {
               :value="item.status"
               @change="emit('updateItemStatus', item.id, ($event.target as HTMLSelectElement).value)"
             >
-              <option value="PLANNED">📋 已计划</option>
-              <option value="COOKED">✅ 已完成</option>
-              <option value="SKIPPED">⏭️ 跳过</option>
+              <option value="PLANNED">已计划</option>
+              <option value="COOKED">已完成</option>
+              <option value="SKIPPED">跳过</option>
             </select>
           </div>
         </div>
@@ -127,7 +130,7 @@ function openRecipe(recipeId: number) {
 
     <!-- Shopping list -->
     <div v-if="plan.shoppingList?.length" class="shopping-section">
-      <h3>🛒 采购清单</h3>
+      <h3 class="shopping-heading"><FcIcon name="cart" :size="20" /> 采购清单</h3>
       <div class="shopping-cards">
         <article
           v-for="item in plan.shoppingList"
@@ -155,7 +158,7 @@ function openRecipe(recipeId: number) {
 
   <!-- Empty state -->
   <div v-else class="empty-state">
-    <div class="empty-icon">📋</div>
+    <div class="empty-icon"><FcIcon name="clipboard" :size="48" /></div>
     <h3>还没有备餐计划</h3>
     <p>配置你的偏好，让 AI 帮你生成一份专属计划。</p>
   </div>
@@ -191,7 +194,7 @@ function openRecipe(recipeId: number) {
   justify-content: center;
   width: 100%;
   height: 100%;
-  font-size: 28px;
+  color: var(--sage);
 }
 
 .plan-item-title {

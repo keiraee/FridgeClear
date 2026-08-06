@@ -9,6 +9,7 @@ import {
   recipeMediaUrl,
   resolveCookingMinutes,
 } from '../utils/recipe'
+import FcIcon from '../components/FcIcon.vue'
 
 defineOptions({ name: 'RecipeDetail' })
 
@@ -139,7 +140,10 @@ watch(recipeId, () => loadDetail())
 
 <template>
   <main class="page-main recipe-detail-page">
-    <button class="detail-back" type="button" @click="goBack">← 返回</button>
+    <button class="detail-back" type="button" @click="goBack">
+      <FcIcon name="back" :size="16" />
+      返回
+    </button>
 
     <p v-if="loading" class="loading-copy">正在加载菜谱详情…</p>
     <p v-else-if="errorMessage && !recipe" class="error-copy">{{ errorMessage }}</p>
@@ -148,7 +152,9 @@ watch(recipeId, () => loadDetail())
       <section class="detail-hero">
         <div class="detail-cover" :class="{ 'has-image': !!coverUrl }">
           <img v-if="coverUrl" :src="coverUrl" :alt="recipe.name" />
-          <div v-else class="detail-cover-fallback" aria-hidden="true">🍳</div>
+          <div v-else class="detail-cover-fallback" aria-hidden="true">
+            <FcIcon name="chef" :size="48" />
+          </div>
         </div>
         <div class="detail-intro">
           <p class="overline">RECIPE DETAIL</p>
@@ -162,7 +168,8 @@ watch(recipeId, () => loadDetail())
           </div>
           <p v-if="recipe.description" class="detail-desc">{{ recipe.description }}</p>
           <button class="cta-primary detail-cta" type="button" @click="goToPlan">
-            ＋ 加入备餐计划
+            <FcIcon name="plus" :size="16" />
+            加入备餐计划
           </button>
         </div>
       </section>
@@ -243,6 +250,9 @@ watch(recipeId, () => loadDetail())
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .detail-back:hover {
@@ -280,7 +290,7 @@ watch(recipeId, () => loadDetail())
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.45);
   border: 3px solid rgba(255, 255, 255, 0.55);
-  font-size: 42px;
+  color: var(--sage);
 }
 
 .detail-intro h1 {
@@ -325,6 +335,7 @@ watch(recipeId, () => loadDetail())
 
 .detail-cta {
   width: fit-content;
+  gap: 8px;
 }
 
 .detail-section {

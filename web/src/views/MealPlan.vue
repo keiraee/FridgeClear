@@ -6,6 +6,7 @@ import type { MealPlan, MealPlanGenerateRequest, MealType, MealPlanItemStatus } 
 import { archiveMealPlan, generateMealPlan, getMealPlan, updateMealPlanItemStatus, updateShoppingItemStatus } from '../api/mealPlans'
 import { useMealPlansStore } from '../stores/mealPlans'
 import MealPlanResult from '../components/MealPlanResult.vue'
+import FcIcon from '../components/FcIcon.vue'
 
 defineOptions({ name: 'MealPlan' })
 
@@ -273,7 +274,8 @@ onMounted(() => { void loadHistory() })
               <span class="spinner" /> AI 正在生成计划...
             </template>
             <template v-else>
-              ✨ 生成备餐计划
+              <FcIcon name="spark" :size="18" />
+              生成备餐计划
             </template>
           </button>
           <p v-if="generationError" class="form-error">{{ generationError }}</p>
@@ -315,7 +317,7 @@ onMounted(() => { void loadHistory() })
 
       <!-- Error -->
       <div v-else-if="generationError && !plan" class="error-state">
-        <div class="error-icon">⚠️</div>
+        <div class="error-icon"><FcIcon name="warning" :size="48" /></div>
         <h3>生成失败</h3>
         <p>{{ generationError }}</p>
         <button class="retry-btn" type="button" @click="handleGenerate">重试</button>
@@ -331,7 +333,7 @@ onMounted(() => { void loadHistory() })
 
       <!-- Empty (initial) -->
       <div v-else class="empty-state">
-        <div class="empty-icon">🤖</div>
+        <div class="empty-icon"><FcIcon name="robot" :size="48" /></div>
         <h3>准备好开始规划了吗？</h3>
         <p>配置你的偏好后，点击「生成备餐计划」，AI 会为你量身定制。</p>
       </div>

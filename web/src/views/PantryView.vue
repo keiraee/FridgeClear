@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { usePantryStore } from '../stores/pantry'
 import type { PantryItem } from '../types'
 import type { PantryItemPayload } from '../api/pantry'
+import FcIcon from '../components/FcIcon.vue'
 
 defineOptions({ name: 'Pantry' })
 
@@ -102,7 +103,8 @@ onMounted(loadItems)
         <p class="page-desc">管理库存食材，优先消耗即将过期的食材。</p>
       </div>
       <button class="cta-primary" type="button" @click="showForm = !showForm">
-        {{ showForm ? '收起表单' : '＋ 添加食材' }}
+        <FcIcon name="plus" :size="16" />
+        {{ showForm ? '收起表单' : '添加食材' }}
       </button>
     </section>
 
@@ -162,10 +164,15 @@ onMounted(loadItems)
       <p v-if="loading" class="loading-copy">正在加载库存…</p>
 
       <div v-else-if="!availableItems.length" class="pantry-empty">
-        <div class="pantry-empty-icon" aria-hidden="true">🧊</div>
+        <div class="pantry-empty-icon" aria-hidden="true">
+          <FcIcon name="pantry" :size="40" />
+        </div>
         <h3>冰箱还是空的</h3>
         <p>先添加一些食材，首页就能根据库存为你推荐可做的菜。</p>
-        <button class="cta-primary" type="button" @click="openAddForm">＋ 添加第一件食材</button>
+        <button class="cta-primary" type="button" @click="openAddForm">
+          <FcIcon name="plus" :size="16" />
+          添加第一件食材
+        </button>
       </div>
 
       <div v-else class="pantry-cards">
