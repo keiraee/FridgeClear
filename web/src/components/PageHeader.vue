@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import FcIcon from './FcIcon.vue'
@@ -8,6 +8,15 @@ import type { IconName } from '../assets/icons/registry'
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const searchQuery = ref('')
+
+watch(
+  () => route.query.q,
+  (value) => {
+    searchQuery.value = typeof value === 'string' ? value : ''
+  },
+  { immediate: true },
+)
 
 const navItems = computed(() => {
   const items: { label: string; path: string; icon: IconName }[] = [
@@ -35,8 +44,16 @@ function navigate(path: string) {
   router.push(path)
 }
 
-function goSearch() {
-  router.push('/recipes')
+function submitSearch() {
+  const keyword = searchQuery.value.trim()
+  if (!auth.isAuthenticated) {
+    void router.push('/login')
+    return
+  }
+  void router.push({
+    name: 'recipes',
+    query: keyword ? { q: keyword } : {},
+  })
 }
 
 function signOut() {
@@ -64,10 +81,16 @@ function signOut() {
     </nav>
 
     <div class="header-actions">
-      <button class="search-btn" type="button" aria-label="搜索菜谱" @click="goSearch">
-        <FcIcon name="search" :size="18" />
-        <span>搜索菜谱</span>
-      </button>
+      <form class="global-search" role="search" @submit.prevent="submitSearch">
+        <FcIcon name="search" :size="18" class="global-search-icon" />
+        <input
+          v-model="searchQuery"
+          type="search"
+          enterkeyhint="search"
+          placeholder="搜索菜谱、食材…"
+          aria-label="全局搜索菜谱"
+        />
+      </form>
       <template v-if="auth.isAuthenticated">
         <span class="user-greeting">你好，{{ auth.user?.nickname }}</span>
         <button class="sign-in-btn" type="button" @click="signOut">

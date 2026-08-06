@@ -30,6 +30,9 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
+server:
+  forward-headers-strategy: framework
+
 knife4j:
   enable: true
   openapi:

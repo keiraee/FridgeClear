@@ -44,11 +44,11 @@ public class RecipeQueryService {
         String safeKeyword = keyword == null ? "" : keyword.trim();
         Page<Recipe> result;
         if (category != null && !safeKeyword.isBlank()) {
-            result = recipeRepository.findByStatusAndCategoryAndNameContaining(RecipeEnums.Status.ACTIVE, category, safeKeyword, pageable);
+            result = recipeRepository.searchByKeyword(RecipeEnums.Status.ACTIVE, category, safeKeyword, pageable);
         } else if (category != null) {
             result = recipeRepository.findByStatusAndCategory(RecipeEnums.Status.ACTIVE, category, pageable);
         } else if (!safeKeyword.isBlank()) {
-            result = recipeRepository.findByStatusAndNameContaining(RecipeEnums.Status.ACTIVE, safeKeyword, pageable);
+            result = recipeRepository.searchByKeyword(RecipeEnums.Status.ACTIVE, null, safeKeyword, pageable);
         } else {
             result = recipeRepository.findByStatus(RecipeEnums.Status.ACTIVE, pageable);
         }

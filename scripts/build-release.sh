@@ -138,6 +138,11 @@ Or use systemd with WorkingDirectory=/opt/fridgeclear
 Website (1Panel OpenResty):
   - Static root: /opt/fridgeclear/dist
   - Reverse proxy /api/ -> http://127.0.0.1:8080/api/
+  - Required proxy headers (otherwise IP logs show 127.0.0.1):
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
   - proxy_read_timeout 300s (for AI meal plan)
 
 Ensure RDS/security group allows the server IP if using cloud MySQL.

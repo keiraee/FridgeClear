@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import RecipeCard from '../components/RecipeCard.vue'
 import LoadingWait from '../components/LoadingWait.vue'
@@ -127,9 +127,33 @@ async function loadMore() {
   }
 }
 
+function syncSearchFromRoute() {
+  const q = typeof route.query.q === 'string' ? route.query.q.trim() : ''
+  keyword.value = q
+  activeKeyword.value = q
+}
+
+function updateRouteSearch(nextKeyword: string) {
+  const q = nextKeyword || undefined
+  return router.replace({
+    name: 'recipes',
+    query: {
+      ...route.query,
+      q,
+      category: route.query.category,
+    },
+  })
+}
+
 async function handleSearch() {
   showFavoritesOnly.value = false
-  activeKeyword.value = keyword.value.trim()
+  const next = keyword.value.trim()
+  const current = typeof route.query.q === 'string' ? route.query.q.trim() : ''
+  activeKeyword.value = next
+  if (next !== current) {
+    await updateRouteSearch(next)
+    return
+  }
   await loadFirstPage(true)
 }
 
@@ -141,7 +165,9 @@ function resetFilters() {
   keyword.value = ''
   activeKeyword.value = ''
   showFavoritesOnly.value = false
-  selectCategory('')
+  activeCategory.value = ''
+  void router.replace({ name: 'recipes', query: {} })
+  void loadFirstPage(true)
 }
 
 function selectFavoritesOnly() {
@@ -161,7 +187,13 @@ function toggleFavorite(id: number) {
 
 onMounted(() => {
   syncCategoryFromRoute()
+  syncSearchFromRoute()
   void loadFirstPage()
+})
+
+onActivated(() => {
+  syncCategoryFromRoute()
+  syncSearchFromRoute()
 })
 
 watch(
@@ -172,6 +204,14 @@ watch(
     if (previous !== activeCategory.value) void loadFirstPage(true)
   },
 )
+
+watch(
+  () => route.query.q,
+  () => {
+    syncSearchFromRoute()
+    void loadFirstPage(true)
+  },
+)
 </script>
 
 <template>
@@ -179,12 +219,12 @@ watch(
     <section class="page-heading-row">
       <div>
         <h1>菜谱</h1>
-        <p class="page-desc">按分类浏览或搜索菜名。</p>
+        <p class="page-desc">按分类浏览，或搜索菜名、描述与食材。</p>
       </div>
     </section>
 
     <form class="recipe-search-form" @submit.prevent="handleSearch">
-      <input v-model="keyword" placeholder="搜索菜名，例如：西红柿" aria-label="搜索菜谱" />
+      <input v-model="keyword" placeholder="搜索菜名、食材，例如：西红柿" aria-label="搜索菜谱" />
       <button class="cta-primary" type="submit" :disabled="loading">{{ loading ? '搜索中…' : '搜索' }}</button>
     </form>
 
