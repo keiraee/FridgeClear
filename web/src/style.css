@@ -129,9 +129,20 @@ input, select, textarea { font: inherit; }
 .list-count { color: var(--gray-text); font-size: 13px; }
 
 /* Pantry cards */
+.pantry-list-head {
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.pantry-list-summary {
+  margin: 6px 0 0;
+  color: var(--gray-text);
+  font-size: 13px;
+}
+
 .pantry-cards {
   display: grid;
-  gap: 12px;
+  gap: 16px;
 }
 
 .pantry-card {
@@ -139,13 +150,14 @@ input, select, textarea { font: inherit; }
   display: flex;
   overflow: hidden;
   border: 1px solid var(--sage-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--white);
+  box-shadow: var(--shadow-sm);
 }
 
 .pantry-card.expiring {
-  border-color: #f0c4a9;
-  background: #fffaf7;
+  border-color: #f0d4c4;
+  background: #fffdfb;
 }
 
 .pantry-card-accent {
@@ -157,38 +169,67 @@ input, select, textarea { font: inherit; }
 .pantry-card-body {
   flex: 1;
   min-width: 0;
-  display: grid;
-  gap: 12px;
-  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
 }
 
-.pantry-card-top {
+.pantry-card-main {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
 }
 
-.pantry-name {
-  display: grid;
-  gap: 2px;
+.pantry-card-info {
   min-width: 0;
+  display: grid;
+  gap: 6px;
 }
 
-.pantry-name strong {
+.pantry-item-name {
+  margin: 0;
   color: var(--deep-green);
   font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
   word-break: break-word;
 }
 
-.pantry-name span {
+.pantry-item-alias {
+  margin: 0;
   color: var(--gray-muted);
   font-size: 12px;
+  line-height: 1.4;
+}
+
+.pantry-item-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  color: var(--gray-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pantry-fact-sep {
+  color: var(--gray-muted);
+}
+
+.pantry-item-expire.urgent {
+  color: #9a4f2a;
+  font-weight: 600;
 }
 
 .pantry-expiring-badge {
   flex-shrink: 0;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 12px;
   background: var(--orange-light);
   color: var(--light-orange);
@@ -196,42 +237,8 @@ input, select, textarea { font: inherit; }
   font-weight: 700;
 }
 
-.pantry-card-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.pantry-meta-item {
-  display: grid;
-  gap: 2px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid var(--sage-border);
-}
-
-.pantry-card.expiring .pantry-meta-item {
-  border-color: #f5d5c0;
-  background: rgba(255, 255, 255, 0.55);
-}
-
-.pantry-meta-label {
-  color: var(--gray-muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-
-.pantry-quantity,
-.pantry-expire {
-  color: var(--deep-green);
-  font-size: 14px;
-  font-weight: 600;
-}
-
 .pantry-note {
-  margin: 0;
+  margin: 4px 0 0;
   color: var(--gray-text);
   font-size: 13px;
   line-height: 1.5;
@@ -239,19 +246,22 @@ input, select, textarea { font: inherit; }
 
 .pantry-actions {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .pantry-actions button {
   border: 1px solid var(--sage-border);
   border-radius: var(--radius-md);
   background: var(--white);
-  padding: 8px 14px;
+  padding: 9px 14px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
 }
 
 .pantry-action-primary {
@@ -272,6 +282,13 @@ input, select, textarea { font: inherit; }
   border-color: #e8b4a8;
   color: #bd4c35;
   background: #fff5f2;
+}
+
+@media (min-width: 960px) {
+  .pantry-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
 }
 
 .pantry-empty {
@@ -2175,11 +2192,20 @@ button:disabled,
   }
 
   .pantry-card-body {
-    padding: 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px;
   }
 
-  .pantry-card-meta {
-    grid-template-columns: 1fr;
+  .pantry-card-main {
+    width: 100%;
+  }
+
+  .pantry-actions {
+    justify-content: stretch;
+    padding-top: 12px;
+    border-top: 1px solid var(--sage-border);
   }
 
   .pantry-actions {

@@ -336,15 +336,15 @@ onMounted(loadItems)
       </form>
     </section>
 
-    <p v-if="availableItems.length" class="pantry-inline-summary">
-      当前 {{ availableItems.length }} 种食材
-      <template v-if="expiringItems.length"> · {{ expiringItems.length }} 种临期</template>
-    </p>
-
     <section class="pantry-list-card">
-      <div class="section-head compact">
-        <h2>库存清单</h2>
-        <span class="list-count">{{ availableItems.length }} 项</span>
+      <div class="section-head compact pantry-list-head">
+        <div>
+          <h2>库存清单</h2>
+          <p v-if="availableItems.length" class="pantry-list-summary">
+            {{ availableItems.length }} 种食材
+            <template v-if="expiringItems.length"> · {{ expiringItems.length }} 种临期</template>
+          </p>
+        </div>
       </div>
 
       <LoadingWait
@@ -374,27 +374,24 @@ onMounted(loadItems)
           :class="{ expiring: isExpiring(item) }"
         >
           <div v-if="isExpiring(item)" class="pantry-card-accent" aria-hidden="true" />
+
           <div class="pantry-card-body">
-            <div class="pantry-card-top">
-              <div class="pantry-name">
-                <strong>{{ displayName(item) }}</strong>
-                <span v-if="item.rawName !== displayName(item)">{{ item.rawName }}</span>
+            <div class="pantry-card-main">
+              <div class="pantry-card-info">
+                <h3 class="pantry-item-name">{{ displayName(item) }}</h3>
+                <p v-if="item.rawName !== displayName(item)" class="pantry-item-alias">{{ item.rawName }}</p>
+                <p class="pantry-item-facts">
+                  <span>{{ formatQuantity(item) }}</span>
+                  <span class="pantry-fact-sep" aria-hidden="true">·</span>
+                  <span class="pantry-item-expire" :class="{ urgent: isExpiring(item) }">
+                    {{ formatExpireDetail(item.expireDate) }}
+                  </span>
+                </p>
+                <p v-if="item.note" class="pantry-note">{{ item.note }}</p>
               </div>
+
               <span v-if="isExpiring(item)" class="pantry-expiring-badge">临期</span>
             </div>
-
-            <div class="pantry-card-meta">
-              <div class="pantry-meta-item">
-                <span class="pantry-meta-label">数量</span>
-                <span class="pantry-quantity">{{ formatQuantity(item) }}</span>
-              </div>
-              <div class="pantry-meta-item">
-                <span class="pantry-meta-label">到期</span>
-                <span class="pantry-expire">{{ formatExpireDetail(item.expireDate) }}</span>
-              </div>
-            </div>
-
-            <p v-if="item.note" class="pantry-note">{{ item.note }}</p>
 
             <div class="pantry-actions">
               <button type="button" class="pantry-action-primary" @click="markUsed(item)">已用完</button>
