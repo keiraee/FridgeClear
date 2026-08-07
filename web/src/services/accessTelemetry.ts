@@ -5,11 +5,11 @@ const CLIENT_ID_KEY = 'fridgeclear_client_id'
 /** 当前标签页会话内是否已上报（关标签后清空，下次打开再记一条） */
 const SESSION_LOG_KEY = 'fridgeclear_access_logged'
 
-const GPS_WAIT_MS = 1500
-const RETRY_DELAY_MS = 2500
 const MAX_EXTRA_JSON = 1900
 const MAX_PATH = 480
 const MAX_REFERRER = 480
+const MAX_ATTEMPTS = 3
+const RETRY_DELAY_MS = 2000
 
 type GpsResult = Pick<AccessLogPayload, 'latitude' | 'longitude' | 'gpsAccuracy' | 'gpsStatus'>
 
@@ -66,24 +66,14 @@ function attemptGps(): Promise<GpsResult> {
       (error) => {
         resolve({ gpsStatus: error.code === error.PERMISSION_DENIED ? 'DENIED' : 'UNAVAILABLE' })
       },
-      { enableHighAccuracy: false, timeout: GPS_WAIT_MS, maximumAge: 300_000 },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 300_000 },
     )
   })
 }
 
-function resolveGps(): Promise<GpsResult> {
+function resolveGpsInBackground(): Promise<GpsResult> {
   if (!gpsPromise) gpsPromise = attemptGps()
   return gpsPromise
-}
-
-/** 不阻塞上报：最多等 GPS_WAIT_MS，超时仍发送记录 */
-async function resolveGpsQuick(): Promise<GpsResult> {
-  return Promise.race([
-    resolveGps(),
-    new Promise<GpsResult>((resolve) => {
-      window.setTimeout(() => resolve({ gpsStatus: 'TIMED_OUT' }), GPS_WAIT_MS)
-    }),
-  ])
 }
 
 function buildExtraJson(): string {
@@ -122,33 +112,62 @@ function buildPayload(pagePath: string, gps: GpsResult): AccessLogPayload {
   }
 }
 
+/** 先立即上报，GPS 在后台获取后合并进同一次请求（不阻塞首包） */
 export async function reportAccessTelemetry(pagePath: string) {
-  const gps = await resolveGpsQuick()
+  void resolveGpsInBackground()
+  const gps = await Promise.race([
+    resolveGpsInBackground(),
+    new Promise<GpsResult>((resolve) => {
+      window.setTimeout(() => resolve({ gpsStatus: 'TIMED_OUT' }), 800)
+    }),
+  ])
   await recordAccessLog(buildPayload(pagePath, gps))
 }
 
 function markSessionLogged() {
-  sessionStorage.setItem(SESSION_LOG_KEY, '1')
+  try {
+    sessionStorage.setItem(SESSION_LOG_KEY, '1')
+  } catch {
+    // 隐私模式等场景 sessionStorage 不可用，忽略
+  }
 }
 
-function scheduleSessionReport(landingPath: string, allowRetry: boolean) {
-  void reportAccessTelemetry(landingPath)
-    .then(() => {
-      markSessionLogged()
-    })
-    .catch(() => {
-      if (!allowRetry) return
-      window.setTimeout(() => {
-        if (sessionStorage.getItem(SESSION_LOG_KEY)) return
-        scheduleSessionReport(landingPath, false)
-      }, RETRY_DELAY_MS)
-    })
+function isSessionLogged(): boolean {
+  try {
+    return sessionStorage.getItem(SESSION_LOG_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+async function sendWithRetry(landingPath: string, attempt = 1): Promise<void> {
+  try {
+    await reportAccessTelemetry(landingPath)
+    markSessionLogged()
+  } catch (error) {
+    if (attempt >= MAX_ATTEMPTS) throw error
+    await new Promise((resolve) => window.setTimeout(resolve, RETRY_DELAY_MS * attempt))
+    if (isSessionLogged()) return
+    await sendWithRetry(landingPath, attempt + 1)
+  }
 }
 
 export function initAccessTelemetry(router: Router) {
-  void router.isReady().then(() => {
-    if (sessionStorage.getItem(SESSION_LOG_KEY)) return
+  const report = () => {
+    if (isSessionLogged()) return
     const landingPath = router.currentRoute.value.fullPath || '/'
-    scheduleSessionReport(landingPath, true)
+    void sendWithRetry(landingPath).catch(() => {
+      // 静默失败；下次打开标签页会重试
+    })
+  }
+
+  void router.isReady().then(() => {
+    report()
+  })
+
+  // 路由守卫跳转（如未登录重定向到 /login）完成后再记落地页
+  router.afterEach((to, from) => {
+    if (from.path === to.path || isSessionLogged()) return
+    void sendWithRetry(to.fullPath || '/').catch(() => {})
   })
 }

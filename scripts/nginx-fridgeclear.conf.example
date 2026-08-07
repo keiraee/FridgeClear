@@ -1,0 +1,38 @@
+# Example: /etc/nginx/sites-enabled/fridgeclear
+# After edit: sudo nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 80;
+    server_name your-domain.com;   # or server IP
+
+    root /opt/fridgeclear/dist;
+    index index.html;
+
+    # Hashed build assets — safe to cache for a long time (filename changes each release)
+    location /assets/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    # Entry HTML — must NOT be cached long, or users keep old JS references after deploy
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+
+    # SPA fallback (hash routes like /#/recipes are client-side; this covers history mode too)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

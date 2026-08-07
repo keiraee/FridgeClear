@@ -97,4 +97,19 @@ class CoreApiIntegrationTest extends AbstractIntegrationTest {
             assertThat(generateBody.path("code").asText()).isEqualTo("AI_SERVICE_UNAVAILABLE");
         }
     }
+
+    @Test
+    void telemetryAcceptsInvalidJwtAsAnonymous() throws Exception {
+        mockMvc.perform(post("/api/v1/telemetry/access")
+                        .header("Authorization", "Bearer invalid-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"test-client","pagePath":"/"}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer invalid-token"))
+                .andExpect(status().isUnauthorized());
+    }
 }

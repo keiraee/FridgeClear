@@ -18,7 +18,7 @@ http.interceptors.response.use(
     const status = error.response?.status
     const url = typeof error.config?.url === 'string' ? error.config.url : ''
 
-    if (status === 401) {
+    if (status === 401 && !url.includes('/telemetry/access')) {
       localStorage.removeItem('fridgeclear_access_token')
       localStorage.removeItem('fridgeclear_user')
       window.dispatchEvent(new Event('fridgeclear:unauthorized'))

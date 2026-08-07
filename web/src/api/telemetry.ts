@@ -68,7 +68,16 @@ export interface AccessLogStats {
 }
 
 export async function recordAccessLog(payload: AccessLogPayload) {
-  await http.post('/telemetry/access', payload, { timeout: 10000 })
+  const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
+  const response = await fetch(`${baseURL}/telemetry/access`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  })
+  if (!response.ok) {
+    throw new Error(`telemetry failed: ${response.status}`)
+  }
 }
 
 export async function getAccessLogs(page = 0, size = 20) {

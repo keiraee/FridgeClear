@@ -145,6 +145,15 @@ Website (1Panel OpenResty):
       proxy_set_header X-Forwarded-Proto $scheme;
   - proxy_read_timeout 300s (for AI meal plan)
 
+Browser cache (important — avoids users stuck on old UI after deploy):
+  - Vite outputs hashed files under dist/assets/ (e.g. index-xxxxx.js) — OK to cache 1 year.
+  - dist/index.html is NOT hashed — browsers must re-fetch it every visit.
+  - Add to Nginx (see scripts/nginx-fridgeclear.conf.example):
+      location /assets/ { Cache-Control: public, max-age=31536000, immutable }
+      location = /index.html { Cache-Control: no-cache, no-store, must-revalidate }
+  - After changing Nginx: sudo nginx -t && sudo systemctl reload nginx
+  - Users already on old tab: hard refresh, or close tab and reopen (WeChat in-app browser may need reopen).
+
 Ensure RDS/security group allows the server IP if using cloud MySQL.
 
 Access telemetry (visit logs):

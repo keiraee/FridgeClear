@@ -35,17 +35,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtService.parse(header.substring(7));
                 Long userId = Long.parseLong(claims.getSubject());
                 UserAccount user = userRepository.findById(userId).orElse(null);
-                if (user == null || user.getStatus() != UserAccount.UserStatus.ACTIVE) {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    return;
+                if (user != null && user.getStatus() == UserAccount.UserStatus.ACTIVE) {
+                    String role = user.getRole().name();
+                    var authentication = new UsernamePasswordAuthenticationToken(userId.toString(), null,
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role)));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
-                String role = user.getRole().name();
-                var authentication = new UsernamePasswordAuthenticationToken(userId.toString(), null,
-                        List.of(new SimpleGrantedAuthority("ROLE_" + role)));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (RuntimeException ignored) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                return;
+                // 无效/过期 token 按匿名处理，避免 permitAll 接口（如遥测）被误拦 401
+                SecurityContextHolder.clearContext();
             }
         }
         chain.doFilter(request, response);
