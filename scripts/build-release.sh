@@ -146,6 +146,17 @@ Website (1Panel OpenResty):
   - proxy_read_timeout 300s (for AI meal plan)
 
 Ensure RDS/security group allows the server IP if using cloud MySQL.
+
+Access telemetry (visit logs):
+  - Requires BOTH app.jar with Flyway V12+ AND fresh dist/ (initAccessTelemetry in main.js).
+  - After deploy, restart java service so migrations run.
+  - Verify table: SHOW TABLES LIKE 'access_log';
+  - Smoke test from server:
+      curl -sS -X POST http://127.0.0.1:8080/api/v1/telemetry/access \
+        -H 'Content-Type: application/json' \
+        -d '{"clientId":"deploy-test","deviceType":"DESKTOP","pagePath":"/"}'
+    Expect HTTP 200 and a new row in access_log.
+  - Browser sends one POST per tab session on first page load (not every route change).
 EOF
 
 if [[ "$CREATE_ARCHIVE" == true ]]; then

@@ -99,7 +99,7 @@ onMounted(() => {
     <section class="page-heading-row">
       <div>
         <h1>访问日志</h1>
-        <p class="page-desc">访问趋势、设备分布与明细记录（GPS 需浏览器授权）。</p>
+        <p class="page-desc">每次打开网站记一条访问（同标签页内切换页面不重复记录）；趋势、设备分布与 GPS（需授权）。</p>
       </div>
       <div class="admin-page-links">
         <button class="secondary-btn" type="button" @click="router.push('/admin/ai-config')">AI 配置</button>
